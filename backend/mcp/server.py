@@ -1,0 +1,240 @@
+from mcp.server import MCPServer
+from backend.services.guests import get_guest
+from backend.services.reservations import get_reservation
+from backend.services.properties import (
+    get_property,
+    get_access_system,
+)
+from backend.services.incidents import get_open_incidents
+from backend.services.access_rules import verify_guest_access
+from backend.services.messages import send_message
+from backend.services.tasks import create_task_if_missing
+from backend.services.escalations import create_escalation_if_missing
+
+
+mcp = MCPServer("StayOps Operations")
+
+
+# ---------------------------------------------------------
+# GUESTS
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def lookup_guest(guest_id: str) -> dict:
+    """
+    Retrieve a guest from the StayOps operational database.
+    """
+
+    guest = get_guest(guest_id)
+
+    if guest is None:
+        return {
+            "found": False,
+            "reason": "guest_not_found",
+        }
+
+    return {
+        "found": True,
+        "guest": guest,
+    }
+
+
+# ---------------------------------------------------------
+# RESERVATIONS
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def lookup_reservation(booking_id: str) -> dict:
+    """
+    Retrieve a reservation using its unique booking ID.
+    """
+
+    reservation = get_reservation(booking_id)
+
+    if reservation is None:
+        return {
+            "found": False,
+            "reason": "reservation_not_found",
+        }
+
+    return {
+        "found": True,
+        "reservation": reservation,
+    }
+
+
+# ---------------------------------------------------------
+# PROPERTIES
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def lookup_property(property_id: str) -> dict:
+    """
+    Retrieve operational information about a rental property.
+    """
+
+    property_data = get_property(property_id)
+
+    if property_data is None:
+        return {
+            "found": False,
+            "reason": "property_not_found",
+        }
+
+    return {
+        "found": True,
+        "property": property_data,
+    }
+
+
+@mcp.tool()
+def lookup_access_system(property_id: str) -> dict:
+    """
+    Retrieve the access system configured for a property.
+    """
+
+    access = get_access_system(property_id)
+
+    if access is None:
+        return {
+            "found": False,
+            "reason": "access_system_not_found",
+        }
+
+    return {
+        "found": True,
+        "access_system": access,
+    }
+
+
+# ---------------------------------------------------------
+# INCIDENTS
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def lookup_open_incidents(property_id: str) -> dict:
+    """
+    Retrieve open operational incidents for a property.
+    """
+
+    incidents = get_open_incidents(property_id)
+
+    return {
+        "property_id": property_id,
+        "incidents": incidents,
+    }
+
+
+# ---------------------------------------------------------
+# ACCESS AUTHORIZATION
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def check_guest_access_permission(
+    guest_id: str,
+    booking_id: str,
+) -> dict:
+    """
+    Deterministically verify whether a guest is currently
+    authorized for property access.
+
+    This must be checked before sensitive access assistance.
+    """
+
+    return verify_guest_access(
+        guest_id=guest_id,
+        booking_id=booking_id,
+    )
+
+
+# ---------------------------------------------------------
+# COMMUNICATION
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def message_guest(
+    booking_id: str,
+    guest_id: str,
+    message_text: str,
+) -> dict:
+    """
+    Send and persist a message to a guest.
+    """
+
+    message = send_message(
+        booking_id=booking_id,
+        guest_id=guest_id,
+        sender_type="agent",
+        message_text=message_text,
+    )
+
+    return {
+        "success": True,
+        "message": message,
+    }
+
+
+# ---------------------------------------------------------
+# OPERATIONAL TASKS
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def ensure_operations_task(
+    property_id: str,
+    booking_id: str,
+    category: str,
+    title: str,
+) -> dict:
+    """
+    Ensure that an open operational task exists.
+
+    If an equivalent task is already open, return it instead
+    of creating a duplicate.
+    """
+
+    return create_task_if_missing(
+        property_id=property_id,
+        booking_id=booking_id,
+        category=category,
+        title=title,
+    )
+
+
+# ---------------------------------------------------------
+# HUMAN ESCALATION
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def ensure_human_escalation(
+    booking_id: str,
+    property_id: str,
+    category: str,
+    reason: str,
+    priority: str = "medium",
+    incident_id: str | None = None,
+):
+    """
+    Create a human escalation if an open escalation for the same
+    booking, property, and category does not already exist.
+    """
+
+    return create_escalation_if_missing(
+        booking_id=booking_id,
+        property_id=property_id,
+        category=category,
+        reason=reason,
+        priority=priority,
+        incident_id=incident_id,
+    )
+
+
+if __name__ == "__main__":
+    mcp.run()

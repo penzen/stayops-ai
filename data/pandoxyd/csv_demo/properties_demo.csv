@@ -1,0 +1,16 @@
+property_id;title;prop_address;postal_code;department;city;max_guests;cleaning_fee;base_price;prop_type;surface
+prop_15;Premium Business Flat near La Défense (Neuilly);142 Avenue Charles de Gaulle, 75017 Paris;75017;75;Paris;2;285.73;489.0;T2/T3;45
+prop_31;Comfortable Budget 1-BR Flat near Stade de France;19 Avenue Jules Rimet, 93200 Saint-Denis;93200;93;Saint-Denis;2;85.72;120.49;T2/T3;60
+prop_40;Bright Executive Studio near Rueil Business District;52 Avenue de Colmar, 92500 Rueil-Malmaison;92500;92;Rueil-Malmaison;2;350.25;487.69;Studio;20
+prop_65;Charming Guest House by the Lake - Enghien;22 Avenue de Ceinture, 95880 Enghien-les-Bains;95880;95;Enghien-les-Bains;2;325.78;460.99;House;120
+prop_3;Cozy Parisian Nest with Montmartre Views;55 Rue Caulaincourt, 75018 Paris;75018;75;Paris;2;75.2;480.5;Haussmanian Flat;60
+prop_35;Urban Studio Hub - Direct Metro to Paris Center;103 Avenue Jean Lolive, 93500 Pantin;93500;93;Pantin;2;375.25;450.78;Studio;20
+prop_1;Charming & Bright Studio near Eiffel Tower;42 Rue Saint-Charles, 75015 Paris;75015;75;Paris;2;375.24;480.5;Studio;26
+prop_66;Disneyland Family Basecamp - 3-BR Townhouse;11 Rue du Moulin, 77700 Magny-le-Hongre;77700;77;Magny-le-Hongre;8;85.3;420.9;House;120
+prop_43;Comfortable 2-BR Tourist Basecamp - Villejuif;89 Avenue de Paris, 94800 Villejuif;94800;94;Villejuif;2;134.5;789.25;T2/T3;60
+prop_67;Quiet Village House with Terrace near Courances;2 Bis Rue du Moulin, 91490 Dannemois;91490;91;Dannemois;2;374.5;2896.25;House;120
+prop_69;Cozy Studio with Castle View - Dourdan;8 Rue de Haute Chasse, 91410 Dourdan;91410;91;Dourdan;2;325.67;480.99;Studio;20
+prop_20;Contemporary 2-BR Apartment near Trocadéro;25 Rue de Passy, 75016 Paris;75016;75;Paris;2;345.78;450.25;T2/T3;70
+prop_61;Premium Villa with Large Garden near Rambouillet;33 Rue de la Louvière, 78120 Rambouillet;78120;78;Rambouillet;2;345.23;800.99;Villa;200
+prop_2;Elegant 2-Bedroom Apartment in Historic Marais;18 Rue des Francs-Bourgeois, 75003 Paris;75003;75;Paris;2;378.5;420.69;T2/T3;70
+prop_42;Charming Suburb Flat - Quick Access to Paris Center;14 Avenue de la République, 92120 Montrouge;92120;92;Montrouge;4;375.25;450.9;Haussmanian Flat;80

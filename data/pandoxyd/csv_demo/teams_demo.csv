@@ -1,0 +1,33 @@
+team_id;team_group;team_role;first_name;last_name;gender;sector;languages;managed_by
+MNG_482;direction_and_management;Operations Director;Alexandre;Dubois;M;All;fr,en;null
+GRO_831;guest_relations;Guest Relations Officer (24/7);James;Smith;M;All;en,fr;MNG_109
+GRO_254;guest_relations;Guest Relations Officer (24/7);Chloé;Masson;F;All;fr,en,es;MNG_109
+GRO_612;guest_relations;Guest Relations Officer (24/7);Mei;Chen;F;All;zh,en,fr;MNG_109
+GRO_390;guest_relations;Guest Relations Officer (24/7);Santiago;Gomez;M;All;es,en,fr;MNG_109
+MNT_904;technical_maintenance;Mobile Technician;Thomas;Moreau;M;petite_cour;fr;MNG_482
+MNT_157;technical_maintenance;Mobile Technician;Rachid;Benali;M;grande_cour;fr,ar;MNG_482
+MNT_683;technical_maintenance;Mobile Technician;Piotr;Kowalski;M;paris;fr,pl;MNG_482
+MNT_421;technical_maintenance;Mobile Technician;Mamadou;Diallo;M;paris;fr,ff;MNG_482
+HKP_518;housekeeping_and_cleaning;Housekeeping Attendant;Fatoumata;Traoré;F;paris;fr,bm;MNG_735
+HKP_293;housekeeping_and_cleaning;Housekeeping Attendant;Aminata;Cissé;F;paris;fr,wo;MNG_735
+HKP_744;housekeeping_and_cleaning;Housekeeping Attendant;Marie;Leroy;F;paris;fr;MNG_735
+HKP_102;housekeeping_and_cleaning;Housekeeping Attendant;Lakshmi;Devi;F;paris;hi,fr;MNG_735
+HKP_865;housekeeping_and_cleaning;Housekeeping Attendant;Youssef;Mansour;M;paris;fr,ar;MNG_735
+HKP_339;housekeeping_and_cleaning;Housekeeping Attendant;Oksana;Bondarenko;F;paris;uk,ru,fr;MNG_735
+HKP_627;housekeeping_and_cleaning;Housekeeping Attendant;Mariama;Barry;F;paris;fr,ff;MNG_735
+HKP_951;housekeeping_and_cleaning;Housekeeping Attendant;Nguyen;Van Hung;M;paris;vi,fr;MNG_735
+HKP_416;housekeeping_and_cleaning;Housekeeping Attendant;Khadija;Idrissi;F;paris;fr,ar;MNG_735
+HKP_188;housekeeping_and_cleaning;Housekeeping Attendant;Carlos;Silva;M;petite_cour;pt,fr;MNG_735
+HKP_703;housekeeping_and_cleaning;Housekeeping Attendant;Boubacar;Keita;M;petite_cour;fr,man;MNG_735
+HKP_552;housekeeping_and_cleaning;Housekeeping Attendant;Svetlana;Ianova;F;petite_cour;fr,ro,ru;MNG_735
+HKP_219;housekeeping_and_cleaning;Housekeeping Attendant;Jean-Pierre;Giraud;M;petite_cour;fr;MNG_735
+HKP_640;housekeeping_and_cleaning;Housekeeping Attendant;Tariq;Mahmood;M;petite_cour;ur,en,fr;MNG_735
+HKP_877;housekeeping_and_cleaning;Housekeeping Attendant;Amadi;Nwachukwu;M;petite_cour;ig,en,fr;MNG_735
+HKP_305;housekeeping_and_cleaning;Housekeeping Attendant;Lin;Zhou;F;petite_cour;zh,fr;MNG_735
+HKP_922;housekeeping_and_cleaning;Housekeeping Attendant;Marta;Santos;F;grande_cour;fr,kea;MNG_735
+HKP_134;housekeeping_and_cleaning;Housekeeping Attendant;Ali;Hassan;M;grande_cour;fr,ar;MNG_735
+HKP_781;housekeeping_and_cleaning;Housekeeping Attendant;Gediminas;Paulauskas;M;grande_cour;lt,ru,fr;MNG_735
+HKP_466;housekeeping_and_cleaning;Housekeeping Attendant;Awa;Diop;F;grande_cour;fr,wo;MNG_735
+HKP_599;housekeeping_and_cleaning;Housekeeping Attendant;Ionut;Popescu;M;grande_cour;ro,fr;MNG_735
+HKP_243;housekeeping_and_cleaning;Housekeeping Attendant;Diego;Flores;M;grande_cour;es,fr;MNG_735
+HKP_810;housekeeping_and_cleaning;Housekeeping Attendant;Fatima;Zahra;F;grande_cour;fr,ar;MNG_735

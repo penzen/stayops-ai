@@ -1,0 +1,106 @@
+# ------------------------------
+# Python
+# ------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python tooling / caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# ------------------------------
+# Environment variables / secrets
+# ------------------------------
+.env
+.env.*
+!.env.example
+
+# Explicit frontend env files
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.production.local
+frontend/.env.test.local
+
+# ------------------------------
+# Node / Next.js
+# ------------------------------
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------
+# Terraform
+# ------------------------------
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/crash.log
+terraform/crash.*.log
+terraform/*.tfplan
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+
+# Keep provider lockfile committed
+# terraform/.terraform.lock.hcl
+
+# Local SSM helper / deployment command files
+terraform/ssm-deploy.json
+
+# ------------------------------
+# Local databases / mutable runtime state
+# ------------------------------
+backend/database/stayops_eval.db
+backend/database/stayops_eval_*.db
+
+# Keep the synthetic demo seed database only if you intentionally
+
+
+backend/database/stayops.db
+
+# ------------------------------
+# Local Qdrant runtime/index data
+# ------------------------------
+memory/qdrant/
+
+# ------------------------------
+# OS / editor
+# ------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+.vscode/
+.idea/
+
+# ------------------------------
+# Misc temporary files
+# ------------------------------
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Python package build metadata
+*.egg-info/

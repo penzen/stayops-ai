@@ -1,0 +1,14 @@
+.git
+.github
+
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+
+frontend
+terraform
+
+.env
+
+backend/database/stayops_eval.db

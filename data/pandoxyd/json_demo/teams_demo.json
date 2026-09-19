@@ -1,0 +1,455 @@
+[
+  {
+    "team_id": "MNG_482",
+    "team_group": "direction_and_management",
+    "team_role": "Operations Director",
+    "first_name": "Alexandre",
+    "last_name": "Dubois",
+    "gender": "M",
+    "sector": "All",
+    "languages": [
+      "fr",
+      "en"
+    ],
+    "managed_by": null
+  },
+  {
+    "team_id": "GRO_831",
+    "team_group": "guest_relations",
+    "team_role": "Guest Relations Officer (24/7)",
+    "first_name": "James",
+    "last_name": "Smith",
+    "gender": "M",
+    "sector": "All",
+    "languages": [
+      "en",
+      "fr"
+    ],
+    "managed_by": "MNG_109"
+  },
+  {
+    "team_id": "GRO_254",
+    "team_group": "guest_relations",
+    "team_role": "Guest Relations Officer (24/7)",
+    "first_name": "Chloé",
+    "last_name": "Masson",
+    "gender": "F",
+    "sector": "All",
+    "languages": [
+      "fr",
+      "en",
+      "es"
+    ],
+    "managed_by": "MNG_109"
+  },
+  {
+    "team_id": "GRO_612",
+    "team_group": "guest_relations",
+    "team_role": "Guest Relations Officer (24/7)",
+    "first_name": "Mei",
+    "last_name": "Chen",
+    "gender": "F",
+    "sector": "All",
+    "languages": [
+      "zh",
+      "en",
+      "fr"
+    ],
+    "managed_by": "MNG_109"
+  },
+  {
+    "team_id": "GRO_390",
+    "team_group": "guest_relations",
+    "team_role": "Guest Relations Officer (24/7)",
+    "first_name": "Santiago",
+    "last_name": "Gomez",
+    "gender": "M",
+    "sector": "All",
+    "languages": [
+      "es",
+      "en",
+      "fr"
+    ],
+    "managed_by": "MNG_109"
+  },
+  {
+    "team_id": "MNT_904",
+    "team_group": "technical_maintenance",
+    "team_role": "Mobile Technician",
+    "first_name": "Thomas",
+    "last_name": "Moreau",
+    "gender": "M",
+    "sector": "petite_cour",
+    "languages": [
+      "fr"
+    ],
+    "managed_by": "MNG_482"
+  },
+  {
+    "team_id": "MNT_157",
+    "team_group": "technical_maintenance",
+    "team_role": "Mobile Technician",
+    "first_name": "Rachid",
+    "last_name": "Benali",
+    "gender": "M",
+    "sector": "grande_cour",
+    "languages": [
+      "fr",
+      "ar"
+    ],
+    "managed_by": "MNG_482"
+  },
+  {
+    "team_id": "MNT_683",
+    "team_group": "technical_maintenance",
+    "team_role": "Mobile Technician",
+    "first_name": "Piotr",
+    "last_name": "Kowalski",
+    "gender": "M",
+    "sector": "paris",
+    "languages": [
+      "fr",
+      "pl"
+    ],
+    "managed_by": "MNG_482"
+  },
+  {
+    "team_id": "MNT_421",
+    "team_group": "technical_maintenance",
+    "team_role": "Mobile Technician",
+    "first_name": "Mamadou",
+    "last_name": "Diallo",
+    "gender": "M",
+    "sector": "paris",
+    "languages": [
+      "fr",
+      "ff"
+    ],
+    "managed_by": "MNG_482"
+  },
+  {
+    "team_id": "HKP_518",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Fatoumata",
+    "last_name": "Traoré",
+    "gender": "F",
+    "sector": "paris",
+    "languages": [
+      "fr",
+      "bm"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_293",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Aminata",
+    "last_name": "Cissé",
+    "gender": "F",
+    "sector": "paris",
+    "languages": [
+      "fr",
+      "wo"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_744",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Marie",
+    "last_name": "Leroy",
+    "gender": "F",
+    "sector": "paris",
+    "languages": [
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_102",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Lakshmi",
+    "last_name": "Devi",
+    "gender": "F",
+    "sector": "paris",
+    "languages": [
+      "hi",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_865",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Youssef",
+    "last_name": "Mansour",
+    "gender": "M",
+    "sector": "paris",
+    "languages": [
+      "fr",
+      "ar"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_339",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Oksana",
+    "last_name": "Bondarenko",
+    "gender": "F",
+    "sector": "paris",
+    "languages": [
+      "uk",
+      "ru",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_627",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Mariama",
+    "last_name": "Barry",
+    "gender": "F",
+    "sector": "paris",
+    "languages": [
+      "fr",
+      "ff"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_951",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Nguyen",
+    "last_name": "Van Hung",
+    "gender": "M",
+    "sector": "paris",
+    "languages": [
+      "vi",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_416",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Khadija",
+    "last_name": "Idrissi",
+    "gender": "F",
+    "sector": "paris",
+    "languages": [
+      "fr",
+      "ar"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_188",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Carlos",
+    "last_name": "Silva",
+    "gender": "M",
+    "sector": "petite_cour",
+    "languages": [
+      "pt",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_703",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Boubacar",
+    "last_name": "Keita",
+    "gender": "M",
+    "sector": "petite_cour",
+    "languages": [
+      "fr",
+      "man"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_552",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Svetlana",
+    "last_name": "Ianova",
+    "gender": "F",
+    "sector": "petite_cour",
+    "languages": [
+      "fr",
+      "ro",
+      "ru"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_219",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Jean-Pierre",
+    "last_name": "Giraud",
+    "gender": "M",
+    "sector": "petite_cour",
+    "languages": [
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_640",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Tariq",
+    "last_name": "Mahmood",
+    "gender": "M",
+    "sector": "petite_cour",
+    "languages": [
+      "ur",
+      "en",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_877",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Amadi",
+    "last_name": "Nwachukwu",
+    "gender": "M",
+    "sector": "petite_cour",
+    "languages": [
+      "ig",
+      "en",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_305",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Lin",
+    "last_name": "Zhou",
+    "gender": "F",
+    "sector": "petite_cour",
+    "languages": [
+      "zh",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_922",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Marta",
+    "last_name": "Santos",
+    "gender": "F",
+    "sector": "grande_cour",
+    "languages": [
+      "fr",
+      "kea"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_134",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Ali",
+    "last_name": "Hassan",
+    "gender": "M",
+    "sector": "grande_cour",
+    "languages": [
+      "fr",
+      "ar"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_781",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Gediminas",
+    "last_name": "Paulauskas",
+    "gender": "M",
+    "sector": "grande_cour",
+    "languages": [
+      "lt",
+      "ru",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_466",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Awa",
+    "last_name": "Diop",
+    "gender": "F",
+    "sector": "grande_cour",
+    "languages": [
+      "fr",
+      "wo"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_599",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Ionut",
+    "last_name": "Popescu",
+    "gender": "M",
+    "sector": "grande_cour",
+    "languages": [
+      "ro",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_243",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Diego",
+    "last_name": "Flores",
+    "gender": "M",
+    "sector": "grande_cour",
+    "languages": [
+      "es",
+      "fr"
+    ],
+    "managed_by": "MNG_735"
+  },
+  {
+    "team_id": "HKP_810",
+    "team_group": "housekeeping_and_cleaning",
+    "team_role": "Housekeeping Attendant",
+    "first_name": "Fatima",
+    "last_name": "Zahra",
+    "gender": "F",
+    "sector": "grande_cour",
+    "languages": [
+      "fr",
+      "ar"
+    ],
+    "managed_by": "MNG_735"
+  }
+]
