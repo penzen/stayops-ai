@@ -2,6 +2,10 @@
 
 StayOps AI is an autonomous guest-operations system for short-term-rental teams. It is designed to do more than generate guest replies: it retrieves operational context, uses company knowledge, takes bounded actions through tools, verifies resulting state, and escalates safely when human intervention is required.
 
+## Demo
+
+![StayOps AI dashboard](assets/stayops-dashboard.png)
+
 **Live demo:** https://d8hbj9y50bgwb.cloudfront.net
 
 ---
@@ -96,6 +100,7 @@ Operational state is isolated by booking, so tasks, escalations, and messages fo
 
 ## Architecture
 
+For the detailed system architecture and request flow, see [Architecture](assets/architecture.md).
 ```mermaid
 flowchart TD
     U[Operator / Demo User] --> CF1[CloudFront - Frontend]
