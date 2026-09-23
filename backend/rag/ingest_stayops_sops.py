@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 import argparse
+import os
 
 from agents.mcp import MCPServerStdio
 
@@ -13,11 +14,19 @@ SOPS_PATH = (
     / "stayops_sops"
 )
 
-QDRANT_PATH = (
-    PROJECT_ROOT
-    / "memory"
-    / "qdrant"
-)
+DEFAULT_QDRANT_PATH = PROJECT_ROOT / "memory" / "qdrant"
+
+
+def get_qdrant_path() -> Path:
+    custom_path = os.getenv("STAYOPS_QDRANT_PATH")
+
+    if custom_path:
+        return Path(custom_path).resolve()
+
+    return DEFAULT_QDRANT_PATH
+
+
+QDRANT_PATH = get_qdrant_path()
 
 
 def chunk_text(
@@ -76,6 +85,7 @@ async def main():
         )
 
     sop_files = [sop_file]
+    QDRANT_PATH.mkdir(parents=True, exist_ok=True)
 
     qdrant_params = {
         "command": "uvx",

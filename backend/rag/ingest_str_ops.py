@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from pathlib import Path
 
 from agents.mcp import MCPServerStdio
@@ -15,7 +16,20 @@ DATA_PATH = (
     / "str-ops-corpus.jsonl"
 )
 
-QDRANT_PATH = PROJECT_ROOT / "memory" / "qdrant"
+
+DEFAULT_QDRANT_PATH = PROJECT_ROOT / "memory" / "qdrant"
+
+
+def get_qdrant_path() -> Path:
+    custom_path = os.getenv("STAYOPS_QDRANT_PATH")
+
+    if custom_path:
+        return Path(custom_path).resolve()
+
+    return DEFAULT_QDRANT_PATH
+
+
+QDRANT_PATH = get_qdrant_path()
 
 
 def chunk_text(

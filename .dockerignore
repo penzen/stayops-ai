@@ -12,3 +12,5 @@ terraform
 .env
 
 backend/database/stayops_eval.db
+backend/database/stayops.db
+memory/qdrant/

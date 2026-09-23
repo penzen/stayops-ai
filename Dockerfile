@@ -30,10 +30,14 @@ RUN uv sync --frozen --no-dev
 # ---------------------------------------------------------
 
 COPY backend ./backend
+COPY data ./data
 COPY knowledge ./knowledge
 
-# Copy the already-ingested read-only Qdrant knowledge store.
-COPY memory/qdrant ./memory/qdrant
+# Build the operational SQLite database from tracked source data.
+RUN uv run python -m backend.database.bootstrap
+
+# Build the Qdrant knowledge store from tracked knowledge sources.
+RUN uv run python -m backend.rag.bootstrap
 
 
 # ---------------------------------------------------------
