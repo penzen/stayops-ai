@@ -3,7 +3,7 @@ import json
 import sqlite3
 from collections.abc import Mapping
 from backend.services.db_fixture import reset_eval_database
-from backend.agent.guest_agent_rag import run_guest_agent
+from backend.agent.guest_agent import run_guest_agent
 from backend.evals.scenarios import EVALUATION_SCENARIOS
 from backend.evals.judge import judge_agent_response
 

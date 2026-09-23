@@ -15,7 +15,7 @@ from backend.api.schemas import (
     AgentChatResponse,
 )
 
-from backend.agent.guest_agent_rag import run_guest_agent
+from backend.agent.guest_agent import run_guest_agent
 
 from backend.services.guests import get_guest
 
