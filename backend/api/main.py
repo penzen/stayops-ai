@@ -279,12 +279,28 @@ async def agent_chat(payload: AgentChatRequest):
     """
 
     try:
+        # Persist the incoming guest message deterministically.
+        send_message(
+            booking_id=payload.booking_id,
+            guest_id=payload.guest_id,
+            sender_type="guest",
+            message_text=payload.message,
+        )
+
         result = await run_guest_agent(
             guest_id=payload.guest_id,
             booking_id=payload.booking_id,
             message=payload.message,
             scenario_name="api_guest_chat",
             show_tools=False,
+        )
+
+        # Persist the outgoing agent response deterministically.
+        send_message(
+            booking_id=payload.booking_id,
+            guest_id=payload.guest_id,
+            sender_type="agent",
+            message_text=result.final_output,
         )
         
         activity_labels = {
@@ -297,7 +313,6 @@ async def agent_chat(payload: AgentChatRequest):
             "qdrant-find": "StayOps operational knowledge retrieved",
             "ensure_operations_task": "Operations task created or reused",
             "ensure_human_escalation": "Human escalation created or reused",
-            "message_guest": "Guest message recorded",
         }
 
         activities = []

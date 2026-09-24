@@ -7,7 +7,7 @@ from backend.services.properties import (
 )
 from backend.services.incidents import get_open_incidents
 from backend.services.access_rules import verify_guest_access
-from backend.services.messages import send_message
+
 from backend.services.tasks import create_task_if_missing
 from backend.services.escalations import create_escalation_if_missing
 
@@ -152,32 +152,7 @@ def check_guest_access_permission(
     )
 
 
-# ---------------------------------------------------------
-# COMMUNICATION
-# ---------------------------------------------------------
 
-
-@mcp.tool()
-def message_guest(
-    booking_id: str,
-    guest_id: str,
-    message_text: str,
-) -> dict:
-    """
-    Send and persist a message to a guest.
-    """
-
-    message = send_message(
-        booking_id=booking_id,
-        guest_id=guest_id,
-        sender_type="agent",
-        message_text=message_text,
-    )
-
-    return {
-        "success": True,
-        "message": message,
-    }
 
 
 # ---------------------------------------------------------

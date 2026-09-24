@@ -195,7 +195,6 @@ Instead, operational capabilities are exposed through MCP tools such as:
 - `check_guest_access_permission`
 - `ensure_operations_task`
 - `ensure_human_escalation`
-- `message_guest`
 
 This keeps database writes and business rules behind deterministic Python services.
 
