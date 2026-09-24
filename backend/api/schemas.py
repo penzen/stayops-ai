@@ -1,10 +1,10 @@
 from pydantic import BaseModel, Field
-
+from backend.domain.enums import Priority, SenderType
 
 class MessageCreate(BaseModel):
     booking_id: str
     guest_id: str
-    sender_type: str = "agent"
+    sender_type: str = SenderType.AGENT
     message_text: str
     channel: str = "chat"
 
@@ -14,7 +14,7 @@ class IncidentCreate(BaseModel):
     booking_id: str | None = None
     category: str
     description: str
-    severity: str = "medium"
+    severity: str = Priority.MEDIUM
 
 
 class TaskCreate(BaseModel):
@@ -32,7 +32,7 @@ class EscalationCreate(BaseModel):
     property_id: str
     incident_id: str | None = None
     reason: str
-    priority: str = "medium"
+    priority: str = Priority.MEDIUM
     assigned_to: str | None = None
     category: str
 

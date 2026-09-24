@@ -1,7 +1,7 @@
 import uuid
 
 from .db import get_connection
-
+from backend.domain.enums import CaseStatus, Priority
 
 def get_open_incidents(property_id: str):
     connection = get_connection()
@@ -29,7 +29,7 @@ def create_incident(
     booking_id: str | None,
     category: str,
     description: str,
-    severity: str = "medium",
+    severity: str = Priority.MEDIUM,
 ):
     connection = get_connection()
 
@@ -56,7 +56,7 @@ def create_incident(
                 category,
                 description,
                 severity,
-                "open",
+                CaseStatus.OPEN,
             ),
         )
 
@@ -82,15 +82,18 @@ def resolve_incident(incident_id: str):
 
     try:
         connection.execute(
-            """
-            UPDATE incidents
-            SET
-                status = 'resolved',
-                resolved_at = CURRENT_TIMESTAMP
-            WHERE incident_id = ?
-            """,
-            (incident_id,),
-        )
+                """
+                UPDATE incidents
+                SET
+                    status = ?,
+                    resolved_at = CURRENT_TIMESTAMP
+                WHERE incident_id = ?
+                """,
+                (
+                    CaseStatus.RESOLVED,
+                    incident_id,
+                ),
+            )
 
         connection.commit()
 

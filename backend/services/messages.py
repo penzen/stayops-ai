@@ -1,5 +1,5 @@
 import uuid
-
+from backend.domain.enums import SenderType
 from .db import get_connection
 
 
@@ -10,6 +10,13 @@ def send_message(
     message_text: str,
     channel: str = "chat",
 ):
+    try:
+        sender_type = SenderType(sender_type.strip().lower()).value
+    except ValueError:
+        raise ValueError(
+            f"Invalid sender type: {sender_type}"
+        )
+
     connection = get_connection()
 
     try:

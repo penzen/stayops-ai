@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from backend.services.access_rules import verify_guest_access
+from backend.domain.enums import SenderType
 from fastapi.middleware.cors import CORSMiddleware
 from backend.services.demo import (
     get_demo_stays,
@@ -283,7 +284,7 @@ async def agent_chat(payload: AgentChatRequest):
         send_message(
             booking_id=payload.booking_id,
             guest_id=payload.guest_id,
-            sender_type="guest",
+            sender_type=SenderType.GUEST,
             message_text=payload.message,
         )
 
@@ -299,7 +300,7 @@ async def agent_chat(payload: AgentChatRequest):
         send_message(
             booking_id=payload.booking_id,
             guest_id=payload.guest_id,
-            sender_type="agent",
+            sender_type=SenderType.AGENT,
             message_text=result.final_output,
         )
         

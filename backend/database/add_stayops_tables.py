@@ -1,6 +1,6 @@
 from pathlib import Path
 import sqlite3
-
+from backend.domain.enums import SenderType
 
 DB_PATH = Path("backend/database/stayops.db")
 
@@ -264,7 +264,7 @@ def seed_demo_scenario(connection: sqlite3.Connection):
         "msg_demo_001",
         booking_id,
         guest_id,
-        "guest",
+        SenderType.GUEST,
         "Hi, I'm outside the apartment and the door code isn't working.",
         "chat",
     ))

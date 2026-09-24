@@ -1,20 +1,9 @@
 import uuid
 
 from .db import get_connection
+from backend.domain.enums import IssueCategory, Priority, CaseStatus
 
 
-VALID_ESCALATION_CATEGORIES = {
-    "access",
-    "plumbing",
-    "heating",
-    "electrical",
-    "maintenance",
-    "safety",
-    "cleaning",
-    "wifi",
-    "refund",
-    "other",
-}
 
 
 def create_escalation(
@@ -22,15 +11,24 @@ def create_escalation(
     property_id: str,
     reason: str,
     category: str,
-    priority: str = "medium",
+    priority: str = Priority.MEDIUM,
     incident_id: str | None = None,
     assigned_to: str | None = None,
 ):
     category = category.strip().lower()
 
-    if category not in VALID_ESCALATION_CATEGORIES:
+    try:
+        category = IssueCategory(category).value
+    except ValueError:
         raise ValueError(
             f"Invalid escalation category: {category}"
+        )
+    
+    try:
+        priority = Priority(priority.strip().lower()).value
+    except ValueError:
+        raise ValueError(
+            f"Invalid escalation priority: {priority}"
         )
 
     connection = get_connection()
@@ -85,7 +83,7 @@ def create_escalation(
                 category,
                 reason,
                 priority,
-                "open",
+                CaseStatus.OPEN,
                 assigned_to,
             ),
         )
@@ -133,12 +131,15 @@ def find_existing_open_escalation(
     incident_id: str | None = None,
 ):
     category = category.strip().lower()
-
-    if category not in VALID_ESCALATION_CATEGORIES:
+    
+    try:
+        category = IssueCategory(category).value
+    except ValueError:
         raise ValueError(
             f"Invalid escalation category: {category}"
         )
 
+    
     connection = get_connection()
 
     try:
@@ -203,7 +204,7 @@ def create_escalation_if_missing(
     property_id: str,
     reason: str,
     category: str,
-    priority: str = "medium",
+    priority: str = Priority.MEDIUM,
     incident_id: str | None = None,
     assigned_to: str | None = None,
 ):

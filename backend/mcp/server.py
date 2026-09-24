@@ -1,6 +1,7 @@
 from mcp.server import MCPServer
 from backend.services.guests import get_guest
 from backend.services.reservations import get_reservation
+from backend.domain.enums import Priority
 from backend.services.properties import (
     get_property,
     get_access_system,
@@ -193,7 +194,7 @@ def ensure_human_escalation(
     property_id: str,
     category: str,
     reason: str,
-    priority: str = "medium",
+    priority: str = Priority.MEDIUM,
     incident_id: str | None = None,
 ):
     """
