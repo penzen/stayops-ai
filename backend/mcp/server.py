@@ -18,6 +18,7 @@ from backend.services.cases import (
     get_open_cases_for_booking,
     ensure_case,
     transition_case_status,
+    resolve_case_if_ready,
 )
 
 mcp = MCPServer("StayOps Operations")
@@ -279,6 +280,29 @@ def update_case_workflow_status(
     return transition_case_status(
         case_id=case_id,
         new_status=normalized_status,
+    )
+
+@mcp.tool()
+def attempt_case_resolution(
+    case_id: str,
+) -> dict:
+    """
+    Attempt to resolve an operational Case.
+
+    Resolution is determined by deterministic operational
+    evidence, not by the agent.
+
+    The Case resolves only when:
+    - resolution evidence exists, and
+    - no linked task remains open, and
+    - no linked escalation remains open.
+
+    If those conditions are not satisfied, resolution is blocked
+    and the Case remains active.
+    """
+
+    return resolve_case_if_ready(
+        case_id=case_id,
     )
 
 # ---------------------------------------------------------

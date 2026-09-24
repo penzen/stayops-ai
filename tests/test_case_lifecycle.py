@@ -2,15 +2,24 @@ import pytest
 
 from backend.services.cases import (
     ensure_case,
-    get_case,
-    get_open_cases_for_booking,
     transition_case_status,
+    resolve_case_if_ready,
+    get_open_cases_for_booking,
+)
+
+from backend.services.tasks import (
+    create_task_if_missing,
+    complete_task,
+)
+
+from backend.services.escalations import (
+    create_escalation_if_missing,
+    resolve_escalation,
 )
 
 
 PROPERTY_ID = "prop_15"
 BOOKING_ID = "book_demo_current_001"
-
 
 def test_case_can_progress_through_lifecycle(test_db):
     case_result = ensure_case(
@@ -33,17 +42,39 @@ def test_case_can_progress_through_lifecycle(test_db):
     assert in_progress["case"]["status"] == "in_progress"
     assert in_progress["case"]["resolved_at"] is None
 
-    resolved = transition_case_status(
+    task_result = create_task_if_missing(
+        property_id=PROPERTY_ID,
+        booking_id=BOOKING_ID,
+        category="heating",
+        title="Investigate heating failure",
         case_id=case_id,
-        new_status="resolved",
     )
 
-    assert resolved["transitioned"] is True
-    assert resolved["from_status"] == "in_progress"
-    assert resolved["to_status"] == "resolved"
+    escalation_result = create_escalation_if_missing(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="heating",
+        reason="Human intervention required.",
+        priority="high",
+        case_id=case_id,
+    )
+
+    complete_task(
+        task_result["task"]["task_id"]
+    )
+
+    resolve_escalation(
+        escalation_result["escalation"]["escalation_id"]
+    )
+
+    resolved = resolve_case_if_ready(
+        case_id
+    )
+
+    assert resolved["resolved"] is True
+    assert resolved["reason"] == "case_resolved"
     assert resolved["case"]["status"] == "resolved"
     assert resolved["case"]["resolved_at"] is not None
-
 
 def test_resolved_case_cannot_transition_again(test_db):
     case_result = ensure_case(
@@ -55,10 +86,36 @@ def test_resolved_case_cannot_transition_again(test_db):
 
     case_id = case_result["case"]["case_id"]
 
-    transition_case_status(
+    task_result = create_task_if_missing(
+        property_id=PROPERTY_ID,
+        booking_id=BOOKING_ID,
+        category="heating",
+        title="Investigate heating failure",
         case_id=case_id,
-        new_status="resolved",
     )
+
+    escalation_result = create_escalation_if_missing(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="heating",
+        reason="Human intervention required.",
+        priority="high",
+        case_id=case_id,
+    )
+
+    complete_task(
+        task_result["task"]["task_id"]
+    )
+
+    resolve_escalation(
+        escalation_result["escalation"]["escalation_id"]
+    )
+
+    resolution = resolve_case_if_ready(
+        case_id
+    )
+
+    assert resolution["resolved"] is True
 
     with pytest.raises(
         ValueError,
@@ -141,3 +198,28 @@ def test_waiting_human_case_is_still_returned_as_active(test_db):
     }
 
     assert case_id in case_ids
+
+
+def test_generic_transition_cannot_resolve_case(test_db):
+    case_result = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="heating",
+        summary="Heating is broken.",
+    )
+
+    case_id = case_result["case"]["case_id"]
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Invalid Case transition",
+    ):
+        transition_case_status(
+            case_id=case_id,
+            new_status="resolved",
+        )

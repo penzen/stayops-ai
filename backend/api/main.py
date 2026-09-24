@@ -49,11 +49,13 @@ from backend.services.messages import (
 from backend.services.tasks import (
     create_task,
     get_open_tasks,
+    complete_task,
 )
 
 from backend.services.escalations import (
     create_escalation,
     get_open_escalations,
+    resolve_escalation,
 )
 
 
@@ -249,6 +251,18 @@ def create_new_task(payload: TaskCreate):
         parent_task_id=payload.parent_task_id,
     )
 
+@app.patch("/tasks/{task_id}/complete")
+def complete_existing_task(task_id: str):
+    task = complete_task(task_id)
+
+    if task is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Task not found",
+        )
+
+    return task
+
 
 # ---------------------------------------------------------
 # ESCALATIONS
@@ -281,6 +295,22 @@ def verify_access(
         guest_id=guest_id,
         booking_id=booking_id,
     )
+
+@app.patch("/escalations/{escalation_id}/resolve")
+def resolve_existing_escalation(
+    escalation_id: str,
+):
+    escalation = resolve_escalation(
+        escalation_id
+    )
+
+    if escalation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Escalation not found",
+        )
+
+    return escalation
 
 
 # ---------------------------------------------------------
@@ -365,6 +395,7 @@ async def agent_chat(payload: AgentChatRequest):
             "lookup_case_context": "Operational case context retrieved",
             "lookup_open_cases_for_booking": "Open operational cases checked",
             "update_case_workflow_status": "Operational case status updated",
+            "attempt_case_resolution": "Operational case resolution checked",
         }
 
         activities = []
@@ -378,6 +409,9 @@ async def agent_chat(payload: AgentChatRequest):
                 "tool_name",
                 None,
             )
+
+            if not isinstance(tool_name, str):
+                    continue
 
             label = activity_labels.get(tool_name)
 

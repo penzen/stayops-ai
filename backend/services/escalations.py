@@ -364,3 +364,61 @@ def create_escalation_if_missing(
         "reason": "escalation_created",
         "escalation": escalation,
     }
+
+def resolve_escalation(escalation_id: str):
+    """
+    Mark a human escalation as resolved.
+
+    This represents evidence that the human handoff
+    no longer requires action.
+    """
+
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM escalations
+            WHERE escalation_id = ?
+            """,
+            (escalation_id,),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        escalation = dict(row)
+
+        if escalation["status"] == CaseStatus.RESOLVED:
+            return escalation
+
+        connection.execute(
+            """
+            UPDATE escalations
+            SET
+                status = ?,
+                resolved_at = CURRENT_TIMESTAMP
+            WHERE escalation_id = ?
+            """,
+            (
+                CaseStatus.RESOLVED,
+                escalation_id,
+            ),
+        )
+
+        connection.commit()
+
+        updated_row = connection.execute(
+            """
+            SELECT *
+            FROM escalations
+            WHERE escalation_id = ?
+            """,
+            (escalation_id,),
+        ).fetchone()
+
+        return dict(updated_row)
+
+    finally:
+        connection.close()

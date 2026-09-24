@@ -302,22 +302,18 @@ CASE_TRANSITIONS = {
         CaseStatus.IN_PROGRESS,
         CaseStatus.WAITING_GUEST,
         CaseStatus.WAITING_HUMAN,
-        CaseStatus.RESOLVED,
     },
     CaseStatus.IN_PROGRESS: {
         CaseStatus.WAITING_GUEST,
         CaseStatus.WAITING_HUMAN,
-        CaseStatus.RESOLVED,
     },
     CaseStatus.WAITING_GUEST: {
         CaseStatus.IN_PROGRESS,
         CaseStatus.WAITING_HUMAN,
-        CaseStatus.RESOLVED,
     },
     CaseStatus.WAITING_HUMAN: {
         CaseStatus.IN_PROGRESS,
         CaseStatus.WAITING_GUEST,
-        CaseStatus.RESOLVED,
     },
     CaseStatus.RESOLVED: set(),
 }
@@ -425,6 +421,147 @@ def transition_case_status(
 
     finally:
         connection.close()
+
+def resolve_case_if_ready(case_id: str):
+    """
+    Resolve a Case only when deterministic operational evidence
+    shows that no linked work remains open.
+
+    A Case cannot resolve merely because the agent believes the
+    issue is finished.
+    """
+
+    connection = get_connection()
+
+    try:
+        case_row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        if case_row is None:
+            raise ValueError(
+                f"Case does not exist: {case_id}"
+            )
+
+        case = dict(case_row)
+
+        # Idempotent resolution.
+        if case["status"] == CaseStatus.RESOLVED:
+            return {
+                "resolved": True,
+                "reason": "already_resolved",
+                "open_tasks": 0,
+                "open_escalations": 0,
+                "case": case,
+            }
+
+        task_counts = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(
+                    CASE
+                        WHEN task_status = 'open'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS open_count
+            FROM tasks
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        escalation_counts = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(
+                    CASE
+                        WHEN status = 'open'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS open_count
+            FROM escalations
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        total_tasks = task_counts["total"]
+        open_tasks = task_counts["open_count"] or 0
+
+        total_escalations = escalation_counts["total"]
+        open_escalations = (
+            escalation_counts["open_count"] or 0
+        )
+
+        total_evidence = (
+            total_tasks + total_escalations
+        )
+
+        # A Case with no operational records has no deterministic
+        # evidence that anything was actually resolved.
+        if total_evidence == 0:
+            return {
+                "resolved": False,
+                "reason": "no_resolution_evidence",
+                "open_tasks": 0,
+                "open_escalations": 0,
+                "case": case,
+            }
+
+        # Any still-open work blocks Case resolution.
+        if open_tasks > 0 or open_escalations > 0:
+            return {
+                "resolved": False,
+                "reason": "unresolved_operational_work",
+                "open_tasks": open_tasks,
+                "open_escalations": open_escalations,
+                "case": case,
+            }
+
+        connection.execute(
+            """
+            UPDATE cases
+            SET status = ?,
+                resolved_at = CURRENT_TIMESTAMP
+            WHERE case_id = ?
+            """,
+            (
+                CaseStatus.RESOLVED,
+                case_id,
+            ),
+        )
+
+        connection.commit()
+
+        updated_row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        return {
+            "resolved": True,
+            "reason": "case_resolved",
+            "open_tasks": 0,
+            "open_escalations": 0,
+            "case": dict(updated_row),
+        }
+
+    finally:
+        connection.close()
+
 
 """
 get_case_context(case_id)

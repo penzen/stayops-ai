@@ -257,3 +257,56 @@ def create_task_if_missing(
         "reason": "task_created",
         "task": task,
     }
+
+def complete_task(task_id: str):
+    """
+    Mark an operational task as completed.
+
+    This represents deterministic evidence that the task
+    itself no longer requires operational work.
+    """
+
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM tasks
+            WHERE task_id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        task = dict(row)
+
+        if task["task_status"] == "completed":
+            return task
+
+        connection.execute(
+            """
+            UPDATE tasks
+            SET task_status = 'completed'
+            WHERE task_id = ?
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+        updated_row = connection.execute(
+            """
+            SELECT *
+            FROM tasks
+            WHERE task_id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        return dict(updated_row)
+
+    finally:
+        connection.close()
