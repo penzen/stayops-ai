@@ -158,3 +158,47 @@ def ensure_case(
         "reason": "case_created",
         "case": case,
     }
+
+def get_case(case_id: str):
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        return dict(row)
+
+    finally:
+        connection.close()
+
+def get_open_cases_for_booking(booking_id: str):
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE booking_id = ?
+              AND status = ?
+            ORDER BY created_at DESC
+            """,
+            (
+                booking_id,
+                CaseStatus.OPEN,
+            ),
+        ).fetchall()
+
+        return [dict(row) for row in rows]
+
+    finally:
+        connection.close()

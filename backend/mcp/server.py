@@ -12,6 +12,10 @@ from backend.services.access_rules import verify_guest_access
 from backend.services.tasks import create_task_if_missing
 from backend.services.escalations import create_escalation_if_missing
 
+from backend.services.cases import (
+    get_case,
+    ensure_case,
+)
 
 mcp = MCPServer("StayOps Operations")
 
@@ -153,7 +157,51 @@ def check_guest_access_permission(
     )
 
 
+# ---------------------------------------------------------
+# CASES
+# ---------------------------------------------------------
 
+
+@mcp.tool()
+def lookup_case(case_id: str) -> dict:
+    """
+    Retrieve one operational Case by its unique Case ID.
+    """
+
+    case = get_case(case_id)
+
+    if case is None:
+        return {
+            "found": False,
+            "reason": "case_not_found",
+        }
+
+    return {
+        "found": True,
+        "case": case,
+    }
+
+
+@mcp.tool()
+def ensure_operational_case(
+    booking_id: str,
+    property_id: str,
+    category: str,
+    summary: str | None = None,
+) -> dict:
+    """
+    Ensure that an open operational Case exists for the same
+    booking, property, and issue category.
+
+    Reuse an existing open Case instead of creating a duplicate.
+    """
+
+    return ensure_case(
+        booking_id=booking_id,
+        property_id=property_id,
+        category=category,
+        summary=summary,
+    )
 
 
 # ---------------------------------------------------------
@@ -167,6 +215,7 @@ def ensure_operations_task(
     booking_id: str,
     category: str,
     title: str,
+    case_id: str | None = None,
 ) -> dict:
     """
     Ensure that an open operational task exists.
@@ -180,6 +229,7 @@ def ensure_operations_task(
         booking_id=booking_id,
         category=category,
         title=title,
+        case_id=case_id,
     )
 
 
@@ -196,6 +246,7 @@ def ensure_human_escalation(
     reason: str,
     priority: str = Priority.MEDIUM,
     incident_id: str | None = None,
+    case_id: str | None = None,
 ):
     """
     Create a human escalation if an open escalation for the same
@@ -209,6 +260,7 @@ def ensure_human_escalation(
         reason=reason,
         priority=priority,
         incident_id=incident_id,
+        case_id=case_id,
     )
 
 

@@ -99,9 +99,11 @@ def find_existing_open_task(
     case_id: str | None = None,
 ):
     """
-    Find an existing open task for the same Case or,
-    when no Case task exists, the same booking,
-    property, and operational category.
+    Find an existing open task for the same Case.
+
+    If a Case is supplied and no Case-linked task exists,
+    allow reuse of a matching legacy task that has not yet
+    been linked to any Case.
     """
 
     connection = get_connection()
@@ -122,6 +124,30 @@ def find_existing_open_task(
 
             if row is not None:
                 return dict(row)
+
+            row = connection.execute(
+                """
+                SELECT *
+                FROM tasks
+                WHERE property_id = ?
+                  AND booking_id IS ?
+                  AND LOWER(category) = LOWER(?)
+                  AND task_status = 'open'
+                  AND case_id IS NULL
+                ORDER BY task_date DESC
+                LIMIT 1
+                """,
+                (
+                    property_id,
+                    booking_id,
+                    category,
+                ),
+            ).fetchone()
+
+            if row is None:
+                return None
+
+            return dict(row)
 
         row = connection.execute(
             """
@@ -173,6 +199,42 @@ def create_task_if_missing(
     )
 
     if existing_task is not None:
+        if (
+            case_id is not None
+            and existing_task["case_id"] is None
+        ):
+            connection = get_connection()
+
+            try:
+                connection.execute(
+                    """
+                    UPDATE tasks
+                    SET case_id = ?
+                    WHERE task_id = ?
+                    AND case_id IS NULL
+                    """,
+                    (
+                        case_id,
+                        existing_task["task_id"],
+                    ),
+                )
+
+                connection.commit()
+
+                row = connection.execute(
+                    """
+                    SELECT *
+                    FROM tasks
+                    WHERE task_id = ?
+                    """,
+                    (existing_task["task_id"],),
+                ).fetchone()
+
+                existing_task = dict(row)
+
+            finally:
+                connection.close()
+
         return {
             "created": False,
             "reason": "existing_open_task",

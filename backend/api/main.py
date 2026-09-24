@@ -16,6 +16,11 @@ from backend.api.schemas import (
     AgentChatResponse,
 )
 
+from backend.services.cases import (
+    get_case,
+    get_open_cases_for_booking,
+)
+
 from backend.agent.guest_agent import run_guest_agent
 
 from backend.services.guests import get_guest
@@ -124,6 +129,26 @@ def read_reservation(booking_id: str):
 def read_booking_messages(booking_id: str):
     return get_booking_messages(booking_id)
 
+# ---------------------------------------------------------
+# CASES
+# ---------------------------------------------------------
+
+@app.get("/cases/{case_id}")
+def read_case(case_id: str):
+    case = get_case(case_id)
+
+    if case is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Case not found",
+        )
+
+    return case
+
+
+@app.get("/reservations/{booking_id}/cases")
+def read_booking_cases(booking_id: str):
+    return get_open_cases_for_booking(booking_id)
 
 # ---------------------------------------------------------
 # PROPERTIES
@@ -314,6 +339,8 @@ async def agent_chat(payload: AgentChatRequest):
             "qdrant-find": "StayOps operational knowledge retrieved",
             "ensure_operations_task": "Operations task created or reused",
             "ensure_human_escalation": "Human escalation created or reused",
+            "lookup_case": "Operational case retrieved",
+            "ensure_operational_case": "Operational case created or reused",
         }
 
         activities = []

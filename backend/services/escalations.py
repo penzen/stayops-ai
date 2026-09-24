@@ -135,7 +135,7 @@ def find_existing_open_escalation(
     case_id: str | None = None,
 ):
     category = category.strip().lower()
-    
+
     try:
         category = IssueCategory(category).value
     except ValueError:
@@ -143,11 +143,16 @@ def find_existing_open_escalation(
             f"Invalid escalation category: {category}"
         )
 
-    
     connection = get_connection()
 
     try:
+        # -----------------------------------------------------
+        # V3 CASE-AWARE LOOKUP
+        # -----------------------------------------------------
+
         if case_id is not None:
+            # First: does this Case already own an open
+            # escalation for this category?
             row = connection.execute(
                 """
                 SELECT *
@@ -166,7 +171,67 @@ def find_existing_open_escalation(
 
             if row is not None:
                 return dict(row)
-        # First try to find an escalation for the exact incident.
+
+            # Second: if an incident is supplied, allow adoption
+            # of an equivalent legacy escalation that is not yet
+            # owned by any Case.
+            if incident_id is not None:
+                row = connection.execute(
+                    """
+                    SELECT e.*
+                    FROM escalations e
+                    JOIN incidents i
+                      ON e.incident_id = i.incident_id
+                    WHERE e.incident_id = ?
+                      AND e.category = ?
+                      AND e.status = 'open'
+                      AND e.case_id IS NULL
+                      AND i.booking_id IS ?
+                      AND i.property_id = ?
+                    ORDER BY e.created_at DESC
+                    LIMIT 1
+                    """,
+                    (
+                        incident_id,
+                        category,
+                        booking_id,
+                        property_id,
+                    ),
+                ).fetchone()
+
+                if row is not None:
+                    return dict(row)
+
+            # Third: allow adoption of a matching legacy
+            # escalation for the same operational issue.
+            row = connection.execute(
+                """
+                SELECT *
+                FROM escalations
+                WHERE booking_id IS ?
+                  AND property_id = ?
+                  AND category = ?
+                  AND status = 'open'
+                  AND case_id IS NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (
+                    booking_id,
+                    property_id,
+                    category,
+                ),
+            ).fetchone()
+
+            if row is None:
+                return None
+
+            return dict(row)
+
+        # -----------------------------------------------------
+        # LEGACY / NON-CASE LOOKUP
+        # -----------------------------------------------------
+
         if incident_id is not None:
             row = connection.execute(
                 """
@@ -192,9 +257,7 @@ def find_existing_open_escalation(
 
             if row is not None:
                 return dict(row)
-
-        # Otherwise find the same type of open escalation
-        # for this booking and property.
+            
         row = connection.execute(
             """
             SELECT *
@@ -243,6 +306,42 @@ def create_escalation_if_missing(
     )
 
     if existing_escalation is not None:
+        if (
+            case_id is not None
+            and existing_escalation["case_id"] is None
+        ):
+            connection = get_connection()
+
+            try:
+                connection.execute(
+                    """
+                    UPDATE escalations
+                    SET case_id = ?
+                    WHERE escalation_id = ?
+                    AND case_id IS NULL
+                    """,
+                    (
+                        case_id,
+                        existing_escalation["escalation_id"],
+                    ),
+                )
+
+                connection.commit()
+
+                row = connection.execute(
+                    """
+                    SELECT *
+                    FROM escalations
+                    WHERE escalation_id = ?
+                    """,
+                    (existing_escalation["escalation_id"],),
+                ).fetchone()
+
+                existing_escalation = dict(row)
+
+            finally:
+                connection.close()
+
         return {
             "created": False,
             "reason": "existing_open_escalation",

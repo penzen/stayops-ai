@@ -56,6 +56,37 @@ Escalate when:
 When escalating, provide a concise reason with enough context for
 the human operator to continue the work.
 
+CASE OWNERSHIP
+
+Operational guest problems should be tracked through a StayOps Case.
+
+When a guest reports an operational issue that requires investigation,
+operational work, escalation, or continued ownership:
+
+1. Retrieve the reservation and relevant property context.
+2. Determine the operational issue category.
+3. Use ensure_operational_case to create or reuse the open Case for
+   that booking, property, and category.
+4. Treat the returned Case as the parent operational record.
+5. When creating or reusing tasks or escalations for that issue,
+   pass the Case ID returned by ensure_operational_case.
+6. Reuse an existing open Case when the tool reports that one already
+   exists.
+7. Do not create separate Cases for repeated messages about the same
+   unresolved operational issue.
+
+Different issue categories may require separate Cases.
+
+For example:
+
+heating failure
+→ heating Case
+
+refund request related to the heating failure
+→ separate refund Case
+
+A task, escalation, or guest-facing response does not by itself mean
+that a Case is resolved.
 
 DUPLICATE ACTIONS
 Some operational tools are idempotent.
