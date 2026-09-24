@@ -305,7 +305,22 @@ async def agent_chat(payload: AgentChatRequest):
     """
 
     try:
-        # Persist the incoming guest message deterministically.
+        # -----------------------------------------------------
+        # LOAD EXISTING MULTI-TURN CONTEXT
+        # -----------------------------------------------------
+
+        open_cases = get_open_cases_for_booking(
+            payload.booking_id
+        )
+
+        recent_messages = get_booking_messages(
+            payload.booking_id
+        )[-6:]
+
+        # -----------------------------------------------------
+        # PERSIST CURRENT GUEST MESSAGE
+        # -----------------------------------------------------
+
         send_message(
             booking_id=payload.booking_id,
             guest_id=payload.guest_id,
@@ -313,12 +328,18 @@ async def agent_chat(payload: AgentChatRequest):
             message_text=payload.message,
         )
 
+        # -----------------------------------------------------
+        # RUN AGENT
+        # -----------------------------------------------------
+
         result = await run_guest_agent(
             guest_id=payload.guest_id,
             booking_id=payload.booking_id,
             message=payload.message,
             scenario_name="api_guest_chat",
             show_tools=False,
+            open_cases=open_cases,
+            recent_messages=recent_messages,
         )
 
         # Persist the outgoing agent response deterministically.
@@ -343,6 +364,7 @@ async def agent_chat(payload: AgentChatRequest):
             "ensure_operational_case": "Operational case created or reused",
             "lookup_case_context": "Operational case context retrieved",
             "lookup_open_cases_for_booking": "Open operational cases checked",
+            "update_case_workflow_status": "Operational case status updated",
         }
 
         activities = []

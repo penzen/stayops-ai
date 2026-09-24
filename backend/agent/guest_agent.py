@@ -38,6 +38,8 @@ async def run_guest_agent(
     scenario_name: str = "guest_operations",
     show_tools: bool = False,
     db_path: str | Path | None = None,
+    open_cases: list[dict] | None = None,
+    recent_messages: list[dict] | None = None,
 ):
     """
     Run the StayOps Guest Operations Agent for one guest message.
@@ -45,7 +47,7 @@ async def run_guest_agent(
     This function is reusable by:
     - manual demos
     - evaluation scenarios
-    - future API endpoints
+    - API endpoints
 
     db_path:
         Optional database override.
@@ -54,6 +56,14 @@ async def run_guest_agent(
         database through STAYOPS_DB_PATH.
 
         If omitted, StayOps uses the normal stayops.db database.
+
+    open_cases:
+        Optional list of currently open operational Cases for
+        the booking.
+
+    recent_messages:
+        Optional bounded booking conversation history supplied
+        as routing/context information for the agent.
     """
 
     # ---------------------------------------------------------
@@ -148,11 +158,77 @@ async def run_guest_agent(
                 ],
             )
 
+            # -------------------------------------------------
+            # OPEN CASE CONTEXT
+            # -------------------------------------------------
+
+            case_context_lines = []
+
+            for case in open_cases or []:
+                case_context_lines.append(
+                    (
+                        f"- Case ID: {case['case_id']}\n"
+                        f"  Category: {case['category']}\n"
+                        f"  Status: {case['status']}\n"
+                        f"  Summary: "
+                        f"{case.get('summary') or 'No summary'}"
+                    )
+                )
+
+            open_cases_text = (
+                "\n".join(case_context_lines)
+                if case_context_lines
+                else "None"
+            )
+
+            # -------------------------------------------------
+            # RECENT CONVERSATION CONTEXT
+            # -------------------------------------------------
+
+            message_context_lines = []
+
+            for previous_message in recent_messages or []:
+                sender_type = previous_message.get(
+                    "sender_type",
+                    "unknown",
+                )
+
+                message_text = previous_message.get(
+                    "message_text",
+                    "",
+                )
+
+                message_context_lines.append(
+                    (
+                        f"{sender_type.upper()}: "
+                        f"{message_text}"
+                    )
+                )
+
+            recent_messages_text = (
+                "\n".join(message_context_lines)
+                if message_context_lines
+                else "None"
+            )
+
+            # -------------------------------------------------
+            # AGENT REQUEST
+            # -------------------------------------------------
+
             request = f"""
 Guest ID: {guest_id}
 Booking ID: {booking_id}
 
-Guest message:
+OPEN OPERATIONAL CASES
+
+{open_cases_text}
+
+RECENT BOOKING CONVERSATION
+
+{recent_messages_text}
+
+CURRENT GUEST MESSAGE
+
 {message}
 """
 

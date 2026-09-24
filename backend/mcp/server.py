@@ -15,8 +15,9 @@ from backend.services.escalations import create_escalation_if_missing
 from backend.services.cases import (
     get_case,
     get_case_context,
-    ensure_case,
     get_open_cases_for_booking,
+    ensure_case,
+    transition_case_status,
 )
 
 mcp = MCPServer("StayOps Operations")
@@ -243,6 +244,42 @@ def ensure_operational_case(
         summary=summary,
     )
 
+@mcp.tool()
+def update_case_workflow_status(
+    case_id: str,
+    new_status: str,
+) -> dict:
+    """
+    Update the workflow state of an active operational Case.
+
+    Agent-settable states:
+    - in_progress
+    - waiting_guest
+    - waiting_human
+
+    Case resolution is handled separately and cannot be
+    performed through this tool.
+    """
+
+    allowed_statuses = {
+        "in_progress",
+        "waiting_guest",
+        "waiting_human",
+    }
+
+    normalized_status = new_status.strip().lower()
+
+    if normalized_status not in allowed_statuses:
+        return {
+            "updated": False,
+            "reason": "status_not_agent_settable",
+            "allowed_statuses": sorted(allowed_statuses),
+        }
+
+    return transition_case_status(
+        case_id=case_id,
+        new_status=normalized_status,
+    )
 
 # ---------------------------------------------------------
 # OPERATIONAL TASKS

@@ -3,6 +3,12 @@ import uuid
 from backend.domain.enums import CaseStatus, IssueCategory
 from .db import get_connection
 
+ACTIVE_CASE_STATUSES = (
+    CaseStatus.OPEN,
+    CaseStatus.IN_PROGRESS,
+    CaseStatus.WAITING_GUEST,
+    CaseStatus.WAITING_HUMAN,
+)
 
 def find_existing_open_case(
     booking_id: str,
@@ -26,9 +32,9 @@ def find_existing_open_case(
             SELECT *
             FROM cases
             WHERE booking_id = ?
-              AND property_id = ?
-              AND category = ?
-              AND status = ?
+            AND property_id = ?
+            AND category = ?
+            AND status IN (?, ?, ?, ?)
             ORDER BY created_at DESC
             LIMIT 1
             """,
@@ -37,6 +43,9 @@ def find_existing_open_case(
                 property_id,
                 category,
                 CaseStatus.OPEN,
+                CaseStatus.IN_PROGRESS,
+                CaseStatus.WAITING_GUEST,
+                CaseStatus.WAITING_HUMAN,
             ),
         ).fetchone()
 
@@ -189,12 +198,15 @@ def get_open_cases_for_booking(booking_id: str):
             SELECT *
             FROM cases
             WHERE booking_id = ?
-              AND status = ?
+            AND status IN (?, ?, ?, ?)
             ORDER BY created_at DESC
             """,
             (
                 booking_id,
                 CaseStatus.OPEN,
+                CaseStatus.IN_PROGRESS,
+                CaseStatus.WAITING_GUEST,
+                CaseStatus.WAITING_HUMAN,
             ),
         ).fetchall()
 
