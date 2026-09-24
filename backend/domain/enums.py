@@ -23,8 +23,10 @@ class Priority(StrEnum):
 
 class CaseStatus(StrEnum):
     OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    WAITING_GUEST = "waiting_guest"
+    WAITING_HUMAN = "waiting_human"
     RESOLVED = "resolved"
-
 
 class SenderType(StrEnum):
     GUEST = "guest"

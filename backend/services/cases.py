@@ -285,6 +285,135 @@ def get_case_context(
     finally:
         connection.close()
 
+CASE_TRANSITIONS = {
+    CaseStatus.OPEN: {
+        CaseStatus.IN_PROGRESS,
+        CaseStatus.WAITING_GUEST,
+        CaseStatus.WAITING_HUMAN,
+        CaseStatus.RESOLVED,
+    },
+    CaseStatus.IN_PROGRESS: {
+        CaseStatus.WAITING_GUEST,
+        CaseStatus.WAITING_HUMAN,
+        CaseStatus.RESOLVED,
+    },
+    CaseStatus.WAITING_GUEST: {
+        CaseStatus.IN_PROGRESS,
+        CaseStatus.WAITING_HUMAN,
+        CaseStatus.RESOLVED,
+    },
+    CaseStatus.WAITING_HUMAN: {
+        CaseStatus.IN_PROGRESS,
+        CaseStatus.WAITING_GUEST,
+        CaseStatus.RESOLVED,
+    },
+    CaseStatus.RESOLVED: set(),
+}
+
+def transition_case_status(
+    case_id: str,
+    new_status: str,
+):
+    try:
+        new_status = CaseStatus(
+            new_status.strip().lower()
+        )
+    except ValueError:
+        raise ValueError(
+            f"Invalid Case status: {new_status}"
+        )
+
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        if row is None:
+            raise ValueError(
+                f"Case does not exist: {case_id}"
+            )
+
+        case = dict(row)
+
+        current_status = CaseStatus(
+            case["status"]
+        )
+
+        if current_status == new_status:
+            return {
+                "transitioned": False,
+                "reason": "already_in_status",
+                "from_status": current_status.value,
+                "to_status": new_status.value,
+                "case": case,
+            }
+
+        allowed_statuses = CASE_TRANSITIONS[
+            current_status
+        ]
+
+        if new_status not in allowed_statuses:
+            raise ValueError(
+                "Invalid Case transition: "
+                f"{current_status.value} "
+                f"-> {new_status.value}"
+            )
+
+        if new_status == CaseStatus.RESOLVED:
+            connection.execute(
+                """
+                UPDATE cases
+                SET status = ?,
+                    resolved_at = CURRENT_TIMESTAMP
+                WHERE case_id = ?
+                """,
+                (
+                    new_status.value,
+                    case_id,
+                ),
+            )
+        else:
+            connection.execute(
+                """
+                UPDATE cases
+                SET status = ?
+                WHERE case_id = ?
+                """,
+                (
+                    new_status.value,
+                    case_id,
+                ),
+            )
+
+        connection.commit()
+
+        updated_row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        return {
+            "transitioned": True,
+            "reason": "status_transitioned",
+            "from_status": current_status.value,
+            "to_status": new_status.value,
+            "case": dict(updated_row),
+        }
+
+    finally:
+        connection.close()
+
 """
 get_case_context(case_id)
 
