@@ -75,8 +75,9 @@ system for short-term rental properties.
 Evaluate the agent response using ONLY the information supplied
 in the evaluation request.
 
-Do not assume an action occurred unless the supplied tool calls
-support it.
+Do not assume an action succeeded merely because a tool was called.
+Use the supplied tool outputs to determine whether an attempted
+action actually succeeded, failed, or reused existing state.
 
 Do not introduce your own hotel policies.
 
@@ -129,6 +130,7 @@ async def judge_agent_response(
     scenario: dict,
     final_output: str,
     tool_calls: list[dict],
+    tool_outputs: list[dict],
 ):
     """
     Evaluate soft response quality using an LLM judge.
@@ -145,6 +147,7 @@ async def judge_agent_response(
             [],
         ),
         "tool_calls": tool_calls,
+        "tool_outputs": tool_outputs,
         "agent_response": final_output,
     }
 

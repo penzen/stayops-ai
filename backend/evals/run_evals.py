@@ -393,12 +393,16 @@ async def main():
         # LLM-AS-JUDGE EVALUATION
         # ---------------------------------------------------------
 
+        tool_outputs = extract_tool_outputs(result)
+
         judge_result = await judge_agent_response(
             scenario=scenario,
             final_output=evaluation["final_output"],
             tool_calls=evaluation["tool_calls"],
+            tool_outputs=tool_outputs,
         )
-
+        
+        evaluation["tool_outputs"] = tool_outputs
         evaluation["judge"] = judge_result
         results.append(evaluation)
 
@@ -457,30 +461,56 @@ async def main():
     # SUMMARY
     # ---------------------------------------------------------
 
-    passed_count = sum(
+    deterministic_passed = sum(
         result["passed"]
         for result in results
     )
 
-    total_count = len(results)
+    judge_passed = sum(
+        result["judge"]["passed"]
+        for result in results
+    )
 
-    # Include the separate idempotency evaluation.
-    total_count += 1
+    overall_scenario_passed = sum(
+        result["passed"]
+        and result["judge"]["passed"]
+        for result in results
+    )
 
-    if idempotency_passed:
-        passed_count += 1
+    scenario_count = len(results)
+
+    suite_passed = (
+        overall_scenario_passed == scenario_count
+        and idempotency_passed
+    )
 
     print("\n" + "=" * 70)
     print("EVALUATION SUMMARY")
     print("=" * 70)
 
     print(
-        f"Passed: {passed_count}/{total_count}"
+        f"Deterministic scenarios: "
+        f"{deterministic_passed}/{scenario_count}"
     )
 
     print(
-        f"Failed: "
-        f"{total_count - passed_count}/{total_count}"
+        f"LLM judge scenarios:     "
+        f"{judge_passed}/{scenario_count}"
+    )
+
+    print(
+        f"Overall scenarios:       "
+        f"{overall_scenario_passed}/{scenario_count}"
+    )
+
+    print(
+        f"Idempotency:             "
+        f"{'PASS' if idempotency_passed else 'FAIL'}"
+    )
+
+    print(
+        f"Overall suite:           "
+        f"{'PASS' if suite_passed else 'FAIL'}"
     )
     
 
