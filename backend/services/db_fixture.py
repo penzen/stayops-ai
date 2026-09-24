@@ -22,7 +22,6 @@ EVAL_DB = (
 
 DEMO_BOOKING_ID = "book_demo_current_001"
 
-
 def reset_eval_database() -> Path:
     """
     Create a fresh evaluation database from the normal StayOps
@@ -41,6 +40,7 @@ def reset_eval_database() -> Path:
     - tasks
     - incidents
     - escalations
+    - cases
     """
 
     if not SOURCE_DB.exists():
@@ -91,6 +91,16 @@ def reset_eval_database() -> Path:
         connection.execute(
             """
             DELETE FROM incidents
+            WHERE booking_id = ?
+            """,
+            (DEMO_BOOKING_ID,),
+        )
+
+        # Cases must be deleted after tasks and escalations
+        # because those records may reference a Case.
+        connection.execute(
+            """
+            DELETE FROM cases
             WHERE booking_id = ?
             """,
             (DEMO_BOOKING_ID,),

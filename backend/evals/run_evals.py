@@ -1,8 +1,22 @@
 import asyncio
 import json
+import os
 import sqlite3
 from collections.abc import Mapping
+
+from backend.domain.enums import SenderType
+
 from backend.services.db_fixture import reset_eval_database
+
+from backend.services.cases import (
+    get_open_cases_for_booking,
+)
+
+from backend.services.messages import (
+    send_message,
+    get_booking_messages,
+)
+
 from backend.agent.guest_agent import run_guest_agent
 from backend.evals.scenarios import EVALUATION_SCENARIOS
 from backend.evals.judge import judge_agent_response
@@ -262,9 +276,28 @@ def evaluate_scenario(
         if call["tool_name"] == "qdrant-find"
     ]
 
-    if not knowledge_calls:
+    # ---------------------------------------------------------
+    # APPROVED OPERATIONAL GUIDANCE
+    # ---------------------------------------------------------
+
+    playbook_calls = [
+        call
+        for call in tool_calls
+        if call["tool_name"]
+        == "lookup_operational_playbook"
+    ]
+
+    knowledge_calls = [
+        call
+        for call in tool_calls
+        if call["tool_name"] == "qdrant-find"
+    ]
+
+    if not playbook_calls and not knowledge_calls:
         failures.append(
-            "Agent did not search operational knowledge."
+            "Agent did not retrieve approved operational "
+            "guidance through either the structured playbook "
+            "or operational knowledge base."
         )
 
     # ---------------------------------------------------------
@@ -350,6 +383,82 @@ def evaluate_scenario(
     }
 
 
+async def run_eval_turn(
+    *,
+    guest_id: str,
+    booking_id: str,
+    message: str,
+    scenario_name: str,
+    db_path,
+):
+    """
+    Run one evaluation turn using the same multi-turn context
+    flow as the production API.
+
+    The evaluation database is temporarily exposed to the
+    service layer through STAYOPS_DB_PATH so Cases and messages
+    are loaded from the correct database.
+    """
+
+    previous_db_path = os.environ.get(
+        "STAYOPS_DB_PATH"
+    )
+
+    os.environ["STAYOPS_DB_PATH"] = str(
+        db_path
+    )
+
+    try:
+        # Load context BEFORE storing the current guest message,
+        # matching the production API behavior.
+        open_cases = get_open_cases_for_booking(
+            booking_id
+        )
+
+        recent_messages = get_booking_messages(
+            booking_id
+        )[-6:]
+
+        send_message(
+            booking_id=booking_id,
+            guest_id=guest_id,
+            sender_type=SenderType.GUEST,
+            message_text=message,
+        )
+
+        result = await run_guest_agent(
+            guest_id=guest_id,
+            booking_id=booking_id,
+            message=message,
+            scenario_name=scenario_name,
+            show_tools=False,
+            db_path=db_path,
+            open_cases=open_cases,
+            recent_messages=recent_messages,
+        )
+
+        send_message(
+            booking_id=booking_id,
+            guest_id=guest_id,
+            sender_type=SenderType.AGENT,
+            message_text=str(
+                result.final_output or ""
+            ),
+        )
+
+        return result
+
+    finally:
+        if previous_db_path is None:
+            os.environ.pop(
+                "STAYOPS_DB_PATH",
+                None,
+            )
+        else:
+            os.environ["STAYOPS_DB_PATH"] = (
+                previous_db_path
+            )
+
 async def main():
 
     results = []
@@ -376,7 +485,6 @@ async def main():
             scenario_name=(
                 f"eval_{scenario['name']}"
             ),
-            show_tools=False,
             db_path=eval_db_path,
         )
          # ---------------------------------------------------------
@@ -456,6 +564,11 @@ async def main():
     # ---------------------------------------------------------
 
     idempotency_passed = await run_idempotency_eval()
+    multiturn_passed = (
+        await run_multiturn_case_reuse_eval()
+    )
+
+
 
     # ---------------------------------------------------------
     # SUMMARY
@@ -482,6 +595,12 @@ async def main():
     suite_passed = (
         overall_scenario_passed == scenario_count
         and idempotency_passed
+        and multiturn_passed
+    )
+
+    print(
+    f"Multi-turn Case reuse:   "
+    f"{'PASS' if multiturn_passed else 'FAIL'}"
     )
 
     print("\n" + "=" * 70)
@@ -507,6 +626,10 @@ async def main():
         f"Idempotency:             "
         f"{'PASS' if idempotency_passed else 'FAIL'}"
     )
+    print(
+        f"Multi-turn Case reuse:   "
+        f"{'PASS' if multiturn_passed else 'FAIL'}"
+    )
 
     print(
         f"Overall suite:           "
@@ -514,6 +637,172 @@ async def main():
     )
     
 
+async def run_multiturn_case_reuse_eval():
+    """
+    Verify that an ambiguous follow-up continues the same
+    operational Case instead of creating duplicate Cases,
+    tasks, or escalations.
+    """
+
+    print("\nRunning: heating_multiturn_case_reuse")
+
+    guest_id = "gst_2631"
+    booking_id = "book_demo_current_001"
+
+    eval_db_path = reset_eval_database()
+
+    # ---------------------------------------------------------
+    # TURN 1
+    # ---------------------------------------------------------
+
+    await run_eval_turn(
+        guest_id=guest_id,
+        booking_id=booking_id,
+        message=(
+            "The heating is broken and the apartment "
+            "is getting cold."
+        ),
+        scenario_name=(
+            "eval_heating_multiturn_first"
+        ),
+        db_path=eval_db_path,
+    )
+
+    # ---------------------------------------------------------
+    # TURN 2
+    # ---------------------------------------------------------
+
+    second_result = await run_eval_turn(
+        guest_id=guest_id,
+        booking_id=booking_id,
+        message="Let's fix it.",
+        scenario_name=(
+            "eval_heating_multiturn_second"
+        ),
+        db_path=eval_db_path,
+    )
+
+    second_tool_calls = extract_tool_calls(
+        second_result
+    )
+    # Retrieving deep Case context is useful when needed,
+    # but is not required on every follow-up because the
+    # agent already receives active Cases and recent conversation
+    # as structured pre-run context.
+
+    case_context_retrieved = any(
+        call["tool_name"]
+        == "lookup_case_context"
+        for call in second_tool_calls
+    )
+
+    # ---------------------------------------------------------
+    # VERIFY DATABASE STATE
+    # ---------------------------------------------------------
+
+    connection = sqlite3.connect(
+        eval_db_path
+    )
+
+    connection.row_factory = sqlite3.Row
+
+    try:
+        cases = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE booking_id = ?
+              AND category = 'heating'
+              AND status != 'resolved'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        tasks = connection.execute(
+            """
+            SELECT *
+            FROM tasks
+            WHERE booking_id = ?
+              AND category = 'heating'
+              AND task_status = 'open'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        escalations = connection.execute(
+            """
+            SELECT *
+            FROM escalations
+            WHERE booking_id = ?
+              AND category = 'heating'
+              AND status = 'open'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+    finally:
+        connection.close()
+
+    exactly_one_case = len(cases) == 1
+    exactly_one_task = len(tasks) == 1
+    exactly_one_escalation = (
+        len(escalations) == 1
+    )
+
+    same_case_ownership = False
+
+    if (
+        exactly_one_case
+        and exactly_one_task
+        and exactly_one_escalation
+    ):
+        case_id = cases[0]["case_id"]
+
+        same_case_ownership = (
+            tasks[0]["case_id"] == case_id
+            and escalations[0]["case_id"]
+            == case_id
+        )
+
+    passed = (
+        exactly_one_case
+        and exactly_one_task
+        and exactly_one_escalation
+        and same_case_ownership
+    )
+
+    print(
+        "Case context retrieved: "
+        f"{case_context_retrieved}"
+    )
+
+    print(
+        f"Active heating Cases: "
+        f"{len(cases)}"
+    )
+
+    print(
+        f"Open heating tasks: "
+        f"{len(tasks)}"
+    )
+
+    print(
+        f"Open heating escalations: "
+        f"{len(escalations)}"
+    )
+
+    print(
+        "Same Case ownership: "
+        f"{same_case_ownership}"
+    )
+
+    print(
+        "PASS"
+        if passed
+        else "FAIL"
+    )
+
+    return passed
     
 
 
@@ -537,21 +826,19 @@ async def run_idempotency_eval():
     eval_db_path = reset_eval_database()
 
     # First run
-    first_result = await run_guest_agent(
+    first_result = await run_eval_turn(
         guest_id=scenario["guest_id"],
         booking_id=scenario["booking_id"],
         message=scenario["message"],
         scenario_name="eval_plumbing_idempotency_first",
-        show_tools=False,
         db_path=eval_db_path,
     )
 
-    second_result = await run_guest_agent(
+    second_result = await run_eval_turn(
         guest_id=scenario["guest_id"],
         booking_id=scenario["booking_id"],
         message=scenario["message"],
         scenario_name="eval_plumbing_idempotency_second",
-        show_tools=False,
         db_path=eval_db_path,
     )
 
@@ -607,11 +894,19 @@ async def run_idempotency_eval():
     finally:
         connection.close()
 
+    # Tool-level reuse is useful observability when the agent
+    # chooses to call the idempotent creation tools again.
+    #
+    # It is not required for correctness because the agent may
+    # recognize existing operational work from Case/context and
+    # correctly avoid calling those tools at all.
+    #
+    # The deterministic requirement is that repeating the issue
+    # does not create duplicate operational records.
+
     passed = (
         task_count == 1
         and escalation_count == 1
-        and task_reused
-        and escalation_reused
     )
     print(
         f"Task tool reported reuse: "
