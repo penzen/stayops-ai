@@ -33,6 +33,8 @@ def create_tables(connection: sqlite3.Connection):
         );
     """)
 
+
+
     # ---------------------------------------------------------
     # MESSAGES
     # Guest / agent / human operator conversation history.
@@ -56,6 +58,33 @@ def create_tables(connection: sqlite3.Connection):
 
             FOREIGN KEY (guest_id)
                 REFERENCES guests(guest_id)
+        );
+    """)
+
+    # ---------------------------------------------------------
+    # CASES
+    # Long-running operational issues owned by StayOps.
+    # ---------------------------------------------------------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cases (
+            case_id TEXT PRIMARY KEY,
+
+            booking_id VARCHAR(64) NOT NULL,
+            property_id VARCHAR(64) NOT NULL,
+
+            category VARCHAR(100) NOT NULL,
+            status VARCHAR(50) NOT NULL DEFAULT 'open',
+
+            summary TEXT,
+
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            resolved_at DATETIME,
+
+            FOREIGN KEY (booking_id)
+                REFERENCES bookings(booking_id),
+
+            FOREIGN KEY (property_id)
+                REFERENCES properties(property_id)
         );
     """)
 
@@ -127,6 +156,37 @@ def create_tables(connection: sqlite3.Connection):
     connection.commit()
 
 
+def add_case_links(connection: sqlite3.Connection):
+    """
+    Add Case relationships to operational tables that existed
+    before the V3 Case model.
+
+    This is safe to run repeatedly because columns are only
+    added when they do not already exist.
+    """
+
+    cursor = connection.cursor()
+
+    for table in ("tasks", "escalations"):
+        columns = {
+            row[1]
+            for row in cursor.execute(
+                f"PRAGMA table_info({table});"
+            ).fetchall()
+        }
+
+        if "case_id" not in columns:
+            cursor.execute(
+                f"""
+                ALTER TABLE {table}
+                ADD COLUMN case_id TEXT
+                REFERENCES cases(case_id);
+                """
+            )
+
+    connection.commit()
+
+
 def create_indexes(connection: sqlite3.Connection):
     cursor = connection.cursor()
 
@@ -158,6 +218,26 @@ def create_indexes(connection: sqlite3.Connection):
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_escalations_status
         ON escalations(status);
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_cases_identity
+        ON cases(
+            booking_id,
+            property_id,
+            category,
+            status
+        );
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tasks_case
+        ON tasks(case_id);
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_escalations_case
+        ON escalations(case_id);
     """)
 
     connection.commit()
@@ -328,6 +408,7 @@ def main():
 
     try:
         create_tables(connection)
+        add_case_links(connection)
         create_indexes(connection)
 
         seed_access_systems(connection)

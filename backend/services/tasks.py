@@ -12,6 +12,7 @@ def create_task(
     assigned_by: str = "AI_AGENT",
     assigned_to: str | None = None,
     parent_task_id: str | None = None,
+    case_id: str | None = None,
 ):
     connection = get_connection()
 
@@ -32,9 +33,10 @@ def create_task(
                 task_status,
                 assigned_by,
                 assigned_to,
-                parent_task_id
+                parent_task_id,
+                case_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 task_id,
@@ -47,6 +49,7 @@ def create_task(
                 assigned_by,
                 assigned_to,
                 parent_task_id,
+                case_id,
             ),
         )
 
@@ -93,15 +96,33 @@ def find_existing_open_task(
     property_id: str,
     booking_id: str | None,
     category: str,
+    case_id: str | None = None,
 ):
     """
-    Find an existing open task for the same booking,
+    Find an existing open task for the same Case or,
+    when no Case task exists, the same booking,
     property, and operational category.
     """
 
     connection = get_connection()
 
     try:
+        if case_id is not None:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM tasks
+                WHERE case_id = ?
+                  AND task_status = 'open'
+                ORDER BY task_date DESC
+                LIMIT 1
+                """,
+                (case_id,),
+            ).fetchone()
+
+            if row is not None:
+                return dict(row)
+
         row = connection.execute(
             """
             SELECT *
@@ -137,6 +158,7 @@ def create_task_if_missing(
     assigned_by: str = "AI_AGENT",
     assigned_to: str | None = None,
     parent_task_id: str | None = None,
+    case_id: str | None = None,
 ):
     """
     Create a task only when an equivalent open operational
@@ -147,6 +169,7 @@ def create_task_if_missing(
         property_id=property_id,
         booking_id=booking_id,
         category=category,
+        case_id=case_id,
     )
 
     if existing_task is not None:
@@ -164,6 +187,7 @@ def create_task_if_missing(
         assigned_by=assigned_by,
         assigned_to=assigned_to,
         parent_task_id=parent_task_id,
+        case_id=case_id,
     )
 
     return {

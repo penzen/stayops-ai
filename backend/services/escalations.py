@@ -14,6 +14,7 @@ def create_escalation(
     priority: str = Priority.MEDIUM,
     incident_id: str | None = None,
     assigned_to: str | None = None,
+    case_id: str | None = None,
 ):
     category = category.strip().lower()
 
@@ -71,9 +72,10 @@ def create_escalation(
                 reason,
                 priority,
                 status,
-                assigned_to
+                assigned_to,
+                case_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 escalation_id,
@@ -85,6 +87,7 @@ def create_escalation(
                 priority,
                 CaseStatus.OPEN,
                 assigned_to,
+                case_id,
             ),
         )
 
@@ -129,6 +132,7 @@ def find_existing_open_escalation(
     property_id: str,
     category: str,
     incident_id: str | None = None,
+    case_id: str | None = None,
 ):
     category = category.strip().lower()
     
@@ -143,6 +147,25 @@ def find_existing_open_escalation(
     connection = get_connection()
 
     try:
+        if case_id is not None:
+            row = connection.execute(
+                """
+                SELECT *
+                FROM escalations
+                WHERE case_id = ?
+                  AND category = ?
+                  AND status = 'open'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (
+                    case_id,
+                    category,
+                ),
+            ).fetchone()
+
+            if row is not None:
+                return dict(row)
         # First try to find an escalation for the exact incident.
         if incident_id is not None:
             row = connection.execute(
@@ -207,6 +230,7 @@ def create_escalation_if_missing(
     priority: str = Priority.MEDIUM,
     incident_id: str | None = None,
     assigned_to: str | None = None,
+    case_id: str | None = None,
 ):
     category = category.strip().lower()
 
@@ -215,6 +239,7 @@ def create_escalation_if_missing(
         property_id=property_id,
         category=category,
         incident_id=incident_id,
+        case_id=case_id,
     )
 
     if existing_escalation is not None:
@@ -232,6 +257,7 @@ def create_escalation_if_missing(
         priority=priority,
         incident_id=incident_id,
         assigned_to=assigned_to,
+        case_id=case_id,
     )
 
     return {

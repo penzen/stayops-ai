@@ -5,6 +5,7 @@ from backend.database.demo_dates import get_active_demo_window
 
 from backend.database.add_stayops_tables import (
     create_tables,
+    add_case_links,
     create_indexes,
     seed_access_systems,
     seed_demo_scenario,
@@ -100,6 +101,7 @@ def print_summary(connection: sqlite3.Connection):
         "guests",
         "teams",
         "bookings",
+        "cases",
         "tasks",
         "access_systems",
         "messages",
@@ -156,6 +158,7 @@ def bootstrap_database(
 
         # 2. Add StayOps-specific schema.
         create_tables(connection)
+        add_case_links(connection)
         create_indexes(connection)
 
         # 3. Seed StayOps operational data.
