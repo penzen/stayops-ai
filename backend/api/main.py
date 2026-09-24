@@ -396,6 +396,7 @@ async def agent_chat(payload: AgentChatRequest):
             "lookup_open_cases_for_booking": "Open operational cases checked",
             "update_case_workflow_status": "Operational case status updated",
             "attempt_case_resolution": "Operational case resolution checked",
+            "lookup_operational_playbook": "Operational playbook retrieved",
         }
 
         activities = []

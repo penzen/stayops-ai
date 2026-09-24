@@ -2,6 +2,7 @@ from mcp.server import MCPServer
 from backend.services.guests import get_guest
 from backend.services.reservations import get_reservation
 from backend.domain.enums import Priority
+from backend.domain.playbooks import get_playbook
 from backend.services.properties import (
     get_property,
     get_access_system,
@@ -304,6 +305,38 @@ def attempt_case_resolution(
     return resolve_case_if_ready(
         case_id=case_id,
     )
+
+# ---------------------------------------------------------
+# OPERATIONAL PLAYBOOKS
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def lookup_operational_playbook(
+    category: str,
+) -> dict:
+    """
+    Retrieve the approved structured operational playbook
+    for an issue category.
+
+    Playbooks define StayOps operational policy, required
+    checks, safe actions, prohibited actions, operational
+    actions, priority conditions, and resolution conditions.
+    """
+
+    playbook = get_playbook(category)
+
+    if playbook is None:
+        return {
+            "found": False,
+            "reason": "playbook_not_found",
+            "category": category,
+        }
+
+    return {
+        "found": True,
+        "playbook": playbook,
+    }
 
 # ---------------------------------------------------------
 # OPERATIONAL TASKS
