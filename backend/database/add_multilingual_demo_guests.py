@@ -1,5 +1,5 @@
 from backend.services.db import get_connection
-
+from backend.database.demo_dates import get_active_demo_window
 
 DEMO_GUESTS = [
     {
@@ -30,8 +30,6 @@ DEMO_BOOKINGS = [
         "booking_id": "book_demo_en_001",
         "guest_id": "gst_demo_en_001",
         "property_id": "prop_15",
-        "check_in": "2026-09-18 00:00:00",
-        "check_out": "2026-09-20 11:00:00",
         "nights": 2,
         "total_price": 420.0,
         "book_status": "confirmed",
@@ -42,8 +40,6 @@ DEMO_BOOKINGS = [
         "booking_id": "book_demo_de_001",
         "guest_id": "gst_demo_de_001",
         "property_id": "prop_15",
-        "check_in": "2026-09-18 00:00:00",
-        "check_out": "2026-09-20 11:00:00",
         "nights": 2,
         "total_price": 390.0,
         "book_status": "confirmed",
@@ -171,11 +167,20 @@ def main():
                 guest,
             )
 
+        check_in, check_out = get_active_demo_window()
+
         for booking in DEMO_BOOKINGS:
+            active_booking = {
+                **booking,
+                "check_in": check_in,
+                "check_out": check_out,
+            }
+
             upsert_booking(
                 connection,
-                booking,
+                active_booking,
             )
+
 
         connection.commit()
 

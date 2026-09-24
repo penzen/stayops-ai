@@ -1,6 +1,7 @@
 import argparse
 import sqlite3
 from pathlib import Path
+from backend.database.demo_dates import get_active_demo_window
 
 from backend.database.add_stayops_tables import (
     create_tables,
@@ -35,6 +36,8 @@ DEFAULT_DB_PATH = (
 
 
 def seed_current_demo_booking(connection: sqlite3.Connection):
+    check_in, check_out = get_active_demo_window()
+
     connection.execute(
         """
         INSERT OR IGNORE INTO bookings (
@@ -55,8 +58,8 @@ def seed_current_demo_booking(connection: sqlite3.Connection):
             "book_demo_current_001",
             "gst_2631",
             "prop_15",
-            "2026-09-18 00:00:00",
-            "2026-09-20 11:00:00",
+            check_in,
+            check_out,
             2,
             978.00,
             "confirmed",
@@ -79,8 +82,16 @@ def seed_multilingual_demo_data(connection: sqlite3.Connection):
     for guest in DEMO_GUESTS:
         upsert_guest(connection, guest)
 
+    check_in, check_out = get_active_demo_window()
+
     for booking in DEMO_BOOKINGS:
-        upsert_booking(connection, booking)
+        active_booking = {
+            **booking,
+            "check_in": check_in,
+            "check_out": check_out,
+        }
+
+        upsert_booking(connection, active_booking)
 
 
 def print_summary(connection: sqlite3.Connection):

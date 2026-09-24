@@ -1,11 +1,13 @@
 import sqlite3
 from pathlib import Path
-
+from backend.database.demo_dates import get_active_demo_window
 
 DB_PATH = Path("backend/database/stayops.db")
 
 
 def add_demo_booking():
+
+    check_in, check_out = get_active_demo_window()
     connection = sqlite3.connect(DB_PATH)
     connection.execute("PRAGMA foreign_keys = ON;")
 
@@ -30,8 +32,8 @@ def add_demo_booking():
                 "book_demo_current_001",
                 "gst_2631",
                 "prop_15",
-                "2026-09-18 00:00:00",
-                "2026-09-20 11:00:00",
+                check_in,
+                check_out,
                 2,
                 978.00,
                 "confirmed",
