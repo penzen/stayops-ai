@@ -202,3 +202,108 @@ def get_open_cases_for_booking(booking_id: str):
 
     finally:
         connection.close()
+
+def get_case_context(
+    case_id: str,
+    recent_message_limit: int = 10,
+):
+    """
+    Build a deterministic operational snapshot for a Case.
+
+    The Case owns tasks and escalations directly.
+    Messages remain booking-level because one guest message
+    can relate to multiple Cases.
+    """
+
+    connection = get_connection()
+
+    try:
+        case = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        if case is None:
+            return None
+
+        case = dict(case)
+
+        tasks = connection.execute(
+            """
+            SELECT *
+            FROM tasks
+            WHERE case_id = ?
+            ORDER BY task_date ASC
+            """,
+            (case_id,),
+        ).fetchall()
+
+        escalations = connection.execute(
+            """
+            SELECT *
+            FROM escalations
+            WHERE case_id = ?
+            ORDER BY created_at ASC
+            """,
+            (case_id,),
+        ).fetchall()
+
+        recent_messages = connection.execute(
+            """
+            SELECT *
+            FROM messages
+            WHERE booking_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (
+                case["booking_id"],
+                recent_message_limit,
+            ),
+        ).fetchall()
+
+        return {
+            "case": case,
+            "tasks": [
+                dict(task)
+                for task in tasks
+            ],
+            "escalations": [
+                dict(escalation)
+                for escalation in escalations
+            ],
+            "recent_messages": [
+                dict(message)
+                for message in reversed(recent_messages)
+            ],
+        }
+
+    finally:
+        connection.close()
+
+"""
+get_case_context(case_id)
+
+        ↓
+
+{
+    case: {...},
+
+    tasks: [
+        everything this Case has caused
+    ],
+
+    escalations: [
+        human handoffs for this Case
+    ],
+
+    recent_messages: [
+        recent booking conversation
+    ]
+}
+
+"""

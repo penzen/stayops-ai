@@ -81,6 +81,7 @@ def reset_demo_state(
     - tasks
     - messages
     - incidents
+    - cases
     """
 
     if booking_id not in DEMO_BOOKING_IDS:
@@ -122,6 +123,13 @@ def reset_demo_state(
             """,
             (booking_id,),
         )
+        case_cursor = connection.execute(
+            """
+            DELETE FROM cases
+            WHERE booking_id = ?
+            """,
+            (booking_id,),
+        )
 
         connection.commit()
 
@@ -137,6 +145,8 @@ def reset_demo_state(
                     message_cursor.rowcount,
                 "incidents":
                     incident_cursor.rowcount,
+                "cases":
+                    case_cursor.rowcount,
             },
         }
 

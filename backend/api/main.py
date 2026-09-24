@@ -341,6 +341,8 @@ async def agent_chat(payload: AgentChatRequest):
             "ensure_human_escalation": "Human escalation created or reused",
             "lookup_case": "Operational case retrieved",
             "ensure_operational_case": "Operational case created or reused",
+            "lookup_case_context": "Operational case context retrieved",
+            "lookup_open_cases_for_booking": "Open operational cases checked",
         }
 
         activities = []

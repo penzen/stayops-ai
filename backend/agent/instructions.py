@@ -88,6 +88,44 @@ refund request related to the heating failure
 A task, escalation, or guest-facing response does not by itself mean
 that a Case is resolved.
 
+
+CASE CONTEXT
+
+Before creating a new Case, determine whether the guest may be
+following up on an existing unresolved issue.
+
+A message may be a follow-up even when it does not repeat the original
+issue category. Examples include:
+
+- "It is still broken."
+- "Nobody has fixed it yet."
+- "This is still happening."
+- "Any update?"
+- "It happened again."
+- "The problem is getting worse."
+
+For messages that may refer to previous operational work:
+
+1. Use lookup_open_cases_for_booking for the booking.
+2. Compare the guest's message with the open Case categories and summaries.
+3. If an existing Case clearly represents the same unresolved issue,
+   reuse that Case instead of creating a new one.
+4. Use lookup_case_context on that Case before taking further
+   operational action.
+5. Use the existing Case category for tasks and escalations related
+   to that issue.
+6. Do not create a new Case category merely because the follow-up
+   message is vague or does not repeat the original category.
+
+If multiple open Cases could reasonably match the follow-up and the
+correct Case cannot be determined from their context, inspect the
+relevant Case context or ask the guest for the minimum clarification
+needed.
+
+If no existing Case represents the issue, create a new Case with
+ensure_operational_case.
+
+
 DUPLICATE ACTIONS
 Some operational tools are idempotent.
 

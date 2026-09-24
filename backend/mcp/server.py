@@ -14,7 +14,9 @@ from backend.services.escalations import create_escalation_if_missing
 
 from backend.services.cases import (
     get_case,
+    get_case_context,
     ensure_case,
+    get_open_cases_for_booking,
 )
 
 mcp = MCPServer("StayOps Operations")
@@ -181,6 +183,44 @@ def lookup_case(case_id: str) -> dict:
         "case": case,
     }
 
+@mcp.tool()
+def lookup_case_context(case_id: str) -> dict:
+    """
+    Retrieve the current operational context for a Case,
+    including Case-owned tasks, Case-owned escalations,
+    and recent booking conversation.
+    """
+
+    context = get_case_context(case_id)
+
+    if context is None:
+        return {
+            "found": False,
+            "reason": "case_not_found",
+        }
+
+    return {
+        "found": True,
+        "context": context,
+    }
+
+@mcp.tool()
+def lookup_open_cases_for_booking(
+    booking_id: str,
+) -> dict:
+    """
+    Retrieve all open operational Cases for a booking.
+
+    Use this when determining whether a guest message is a
+    follow-up to an already active operational issue.
+    """
+
+    cases = get_open_cases_for_booking(booking_id)
+
+    return {
+        "booking_id": booking_id,
+        "cases": cases,
+    }
 
 @mcp.tool()
 def ensure_operational_case(
