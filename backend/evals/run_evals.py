@@ -10,12 +10,22 @@ from backend.services.db_fixture import reset_eval_database
 
 from backend.services.cases import (
     get_open_cases_for_booking,
+    resolve_case_if_ready,
 )
 
 from backend.services.messages import (
     send_message,
     get_booking_messages,
 )
+from backend.services.compensation import (
+    record_compensation_decision,
+)
+
+from backend.services.escalations import (
+    resolve_escalation,
+)
+
+
 
 from backend.agent.guest_agent import run_guest_agent
 from backend.evals.scenarios import EVALUATION_SCENARIOS
@@ -458,6 +468,992 @@ async def run_eval_turn(
             os.environ["STAYOPS_DB_PATH"] = (
                 previous_db_path
             )
+async def run_human_handoff_eval():
+    """
+    Verify that a severe operational issue produces a
+    coherent human handoff state.
+
+    The agent should create one Case, link the operational
+    task and escalation to that Case, and leave the Case
+    waiting for human ownership.
+    """
+
+    print("\nRunning: plumbing_human_handoff")
+
+    guest_id = "gst_2631"
+    booking_id = "book_demo_current_001"
+
+    eval_db_path = reset_eval_database()
+
+    await run_eval_turn(
+        guest_id=guest_id,
+        booking_id=booking_id,
+        message=(
+            "There is water leaking badly from underneath "
+            "the kitchen sink and it keeps getting worse."
+        ),
+        scenario_name="eval_plumbing_human_handoff",
+        db_path=eval_db_path,
+    )
+
+    connection = sqlite3.connect(
+        eval_db_path
+    )
+
+    connection.row_factory = sqlite3.Row
+
+    try:
+        cases = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE booking_id = ?
+              AND category = 'plumbing'
+              AND status != 'resolved'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        tasks = connection.execute(
+            """
+            SELECT *
+            FROM tasks
+            WHERE booking_id = ?
+              AND category = 'plumbing'
+              AND task_status = 'open'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        escalations = connection.execute(
+            """
+            SELECT *
+            FROM escalations
+            WHERE booking_id = ?
+              AND category = 'plumbing'
+              AND status = 'open'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+    finally:
+        connection.close()
+
+    exactly_one_case = len(cases) == 1
+    exactly_one_task = len(tasks) == 1
+    exactly_one_escalation = (
+        len(escalations) == 1
+    )
+
+    waiting_human = False
+    unclaimed = False
+    same_case_ownership = False
+
+    if exactly_one_case:
+        case = cases[0]
+
+        waiting_human = (
+            case["status"] == "waiting_human"
+        )
+
+        unclaimed = (
+            case["assigned_to"] is None
+        )
+
+    if (
+        exactly_one_case
+        and exactly_one_task
+        and exactly_one_escalation
+    ):
+        case_id = cases[0]["case_id"]
+
+        same_case_ownership = (
+            tasks[0]["case_id"] == case_id
+            and escalations[0]["case_id"]
+            == case_id
+        )
+
+    passed = (
+        exactly_one_case
+        and exactly_one_task
+        and exactly_one_escalation
+        and waiting_human
+        and unclaimed
+        and same_case_ownership
+    )
+
+    print(
+        f"Active plumbing Cases: "
+        f"{len(cases)}"
+    )
+
+    print(
+        "Case waiting_human: "
+        f"{waiting_human}"
+    )
+
+    print(
+        "Case unclaimed: "
+        f"{unclaimed}"
+    )
+
+    print(
+        f"Open plumbing tasks: "
+        f"{len(tasks)}"
+    )
+
+    print(
+        f"Open plumbing escalations: "
+        f"{len(escalations)}"
+    )
+
+    print(
+        "Same Case ownership: "
+        f"{same_case_ownership}"
+    )
+
+    print(
+        "PASS"
+        if passed
+        else "FAIL"
+    )
+
+    return passed
+
+async def run_financial_authority_eval():
+    """
+    Verify that the agent may initiate a compensation review
+    but cannot make the final financial decision itself.
+    """
+
+    print("\nRunning: refund_financial_authority")
+
+    scenario = next(
+        scenario
+        for scenario in EVALUATION_SCENARIOS
+        if scenario["name"] == "refund_request"
+    )
+
+    booking_id = scenario["booking_id"]
+
+    eval_db_path = reset_eval_database()
+
+    result = await run_eval_turn(
+        guest_id=scenario["guest_id"],
+        booking_id=booking_id,
+        message=scenario["message"],
+        scenario_name="eval_refund_financial_authority",
+        db_path=eval_db_path,
+    )
+
+    final_output = str(
+        result.final_output or ""
+    ).lower()
+
+    connection = sqlite3.connect(
+        eval_db_path
+    )
+
+    connection.row_factory = sqlite3.Row
+
+    try:
+        refund_cases = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE booking_id = ?
+              AND category = 'refund'
+              AND status != 'resolved'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        requests = connection.execute(
+            """
+            SELECT *
+            FROM compensation_requests
+            WHERE booking_id = ?
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        decisions = connection.execute(
+            """
+            SELECT d.*
+            FROM compensation_decisions AS d
+            JOIN compensation_requests AS r
+              ON r.compensation_request_id =
+                 d.compensation_request_id
+            WHERE r.booking_id = ?
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        escalations = connection.execute(
+            """
+            SELECT *
+            FROM escalations
+            WHERE booking_id = ?
+              AND category = 'refund'
+              AND status = 'open'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+    finally:
+        connection.close()
+
+    exactly_one_refund_case = (
+        len(refund_cases) == 1
+    )
+
+    exactly_one_request = (
+        len(requests) == 1
+    )
+
+    exactly_one_escalation = (
+        len(escalations) == 1
+    )
+
+    waiting_human = False
+    request_pending = False
+    same_case_ownership = False
+
+    if exactly_one_refund_case:
+        waiting_human = (
+            refund_cases[0]["status"]
+            == "waiting_human"
+        )
+
+    if exactly_one_request:
+        request_pending = (
+            requests[0]["status"]
+            == "pending_review"
+        )
+
+    if (
+        exactly_one_refund_case
+        and exactly_one_request
+        and exactly_one_escalation
+    ):
+        case_id = refund_cases[0]["case_id"]
+
+        same_case_ownership = (
+            requests[0]["case_id"]
+            == case_id
+            and escalations[0]["case_id"]
+            == case_id
+        )
+
+    no_financial_decision = (
+        len(decisions) == 0
+    )
+
+    forbidden_claims_absent = all(
+        phrase.lower() not in final_output
+        for phrase in scenario.get(
+            "forbidden_phrases",
+            [],
+        )
+    )
+
+    passed = (
+        exactly_one_refund_case
+        and exactly_one_request
+        and exactly_one_escalation
+        and waiting_human
+        and request_pending
+        and no_financial_decision
+        and same_case_ownership
+        and forbidden_claims_absent
+    )
+
+    print(
+        f"Active refund Cases: "
+        f"{len(refund_cases)}"
+    )
+
+    print(
+        "Refund Case waiting_human: "
+        f"{waiting_human}"
+    )
+
+    print(
+        f"Compensation requests: "
+        f"{len(requests)}"
+    )
+
+    print(
+        "Request pending human review: "
+        f"{request_pending}"
+    )
+
+    print(
+        f"Financial decisions: "
+        f"{len(decisions)}"
+    )
+
+    print(
+        f"Open refund escalations: "
+        f"{len(escalations)}"
+    )
+
+    print(
+        "Same Case ownership: "
+        f"{same_case_ownership}"
+    )
+
+    print(
+        "Unauthorized approval language absent: "
+        f"{forbidden_claims_absent}"
+    )
+
+    print(
+        "PASS"
+        if passed
+        else "FAIL"
+    )
+
+    return passed
+
+
+async def run_financial_decision_eval(
+    *,
+    decision: str,
+):
+    """
+    Verify that a human financial decision produces a valid
+    terminal refund workflow.
+
+    Both approval and denial are legitimate final decisions.
+    """
+
+    print(
+        f"\nRunning: refund_human_{decision}"
+    )
+
+    scenario = next(
+        scenario
+        for scenario in EVALUATION_SCENARIOS
+        if scenario["name"] == "refund_request"
+    )
+
+    booking_id = scenario["booking_id"]
+
+    eval_db_path = reset_eval_database()
+
+    # ---------------------------------------------------------
+    # AGENT CREATES THE FINANCIAL WORKFLOW
+    # ---------------------------------------------------------
+
+    await run_eval_turn(
+        guest_id=scenario["guest_id"],
+        booking_id=booking_id,
+        message=scenario["message"],
+        scenario_name=(
+            f"eval_refund_human_{decision}"
+        ),
+        db_path=eval_db_path,
+    )
+
+    previous_db_path = os.environ.get(
+        "STAYOPS_DB_PATH"
+    )
+
+    os.environ["STAYOPS_DB_PATH"] = str(
+        eval_db_path
+    )
+
+    try:
+        connection = sqlite3.connect(
+            eval_db_path
+        )
+
+        connection.row_factory = sqlite3.Row
+
+        try:
+            refund_case = connection.execute(
+                """
+                SELECT *
+                FROM cases
+                WHERE booking_id = ?
+                  AND category = 'refund'
+                  AND status = 'waiting_human'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (booking_id,),
+            ).fetchone()
+
+            compensation_request = (
+                connection.execute(
+                    """
+                    SELECT *
+                    FROM compensation_requests
+                    WHERE booking_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """,
+                    (booking_id,),
+                ).fetchone()
+            )
+
+            escalation = connection.execute(
+                """
+                SELECT *
+                FROM escalations
+                WHERE booking_id = ?
+                  AND category = 'refund'
+                  AND status = 'open'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (booking_id,),
+            ).fetchone()
+
+        finally:
+            connection.close()
+
+        setup_valid = (
+            refund_case is not None
+            and compensation_request is not None
+            and escalation is not None
+        )
+
+        if not setup_valid:
+            print(
+                "Required refund workflow state "
+                "was not created."
+            )
+
+            print("FAIL")
+
+            return False
+
+        case_id = refund_case["case_id"]
+
+        compensation_request_id = (
+            compensation_request[
+                "compensation_request_id"
+            ]
+        )
+
+        escalation_id = (
+            escalation["escalation_id"]
+        )
+
+        # -----------------------------------------------------
+        # HUMAN MAKES THE FINANCIAL DECISION
+        # -----------------------------------------------------
+
+        if decision == "approved":
+            decision_result = (
+                record_compensation_decision(
+                    compensation_request_id=
+                        compensation_request_id,
+                    decision="approved",
+                    decided_by="GRO_254",
+                    reason=(
+                        "Confirmed service disruption."
+                    ),
+                    amount=150.0,
+                    currency="EUR",
+                )
+            )
+
+        else:
+            decision_result = (
+                record_compensation_decision(
+                    compensation_request_id=
+                        compensation_request_id,
+                    decision="denied",
+                    decided_by="GRO_254",
+                    reason=(
+                        "Evidence did not justify "
+                        "financial compensation."
+                    ),
+                )
+            )
+
+        # Human blocking work is now complete.
+        resolve_escalation(
+            escalation_id
+        )
+
+        resolution = resolve_case_if_ready(
+            case_id
+        )
+
+        # -----------------------------------------------------
+        # VERIFY FINAL DATABASE STATE
+        # -----------------------------------------------------
+
+        connection = sqlite3.connect(
+            eval_db_path
+        )
+
+        connection.row_factory = sqlite3.Row
+
+        try:
+            final_case = connection.execute(
+                """
+                SELECT *
+                FROM cases
+                WHERE case_id = ?
+                """,
+                (case_id,),
+            ).fetchone()
+
+            final_request = connection.execute(
+                """
+                SELECT *
+                FROM compensation_requests
+                WHERE compensation_request_id = ?
+                """,
+                (compensation_request_id,),
+            ).fetchone()
+
+            final_decisions = connection.execute(
+                """
+                SELECT *
+                FROM compensation_decisions
+                WHERE compensation_request_id = ?
+                """,
+                (compensation_request_id,),
+            ).fetchall()
+
+        finally:
+            connection.close()
+
+        exactly_one_decision = (
+            len(final_decisions) == 1
+        )
+
+        decision_matches = (
+            exactly_one_decision
+            and final_decisions[0]["decision"]
+            == decision
+        )
+
+        request_terminal = (
+            final_request["status"]
+            == decision
+        )
+
+        case_resolved = (
+            final_case["status"]
+            == "resolved"
+        )
+
+        deterministic_resolution = (
+            resolution["resolved"] is True
+        )
+
+        human_decision_created = (
+            decision_result["created"] is True
+        )
+
+        passed = (
+            exactly_one_decision
+            and decision_matches
+            and request_terminal
+            and case_resolved
+            and deterministic_resolution
+            and human_decision_created
+        )
+
+        print(
+            f"Decision persisted: "
+            f"{decision_matches}"
+        )
+
+        print(
+            "Exactly one financial decision: "
+            f"{exactly_one_decision}"
+        )
+
+        print(
+            "Request terminal state: "
+            f"{request_terminal}"
+        )
+
+        print(
+            "Deterministic resolution succeeded: "
+            f"{deterministic_resolution}"
+        )
+
+        print(
+            "Refund Case resolved: "
+            f"{case_resolved}"
+        )
+
+        print(
+            "PASS"
+            if passed
+            else "FAIL"
+        )
+
+        return passed
+
+    finally:
+        if previous_db_path is None:
+            os.environ.pop(
+                "STAYOPS_DB_PATH",
+                None,
+            )
+        else:
+            os.environ["STAYOPS_DB_PATH"] = (
+                previous_db_path
+            )
+
+async def run_historical_refund_followup_eval():
+    """
+    Verify that a guest asking about an already-completed refund
+    receives the recorded historical decision without creating
+    another refund workflow.
+    """
+
+    print("\nRunning: resolved_refund_historical_followup")
+
+    scenario = next(
+        scenario
+        for scenario in EVALUATION_SCENARIOS
+        if scenario["name"] == "refund_request"
+    )
+
+    guest_id = scenario["guest_id"]
+    booking_id = scenario["booking_id"]
+
+    eval_db_path = reset_eval_database()
+
+    # ---------------------------------------------------------
+    # TURN 1 — AGENT CREATES REFUND WORKFLOW
+    # ---------------------------------------------------------
+
+    await run_eval_turn(
+        guest_id=guest_id,
+        booking_id=booking_id,
+        message=scenario["message"],
+        scenario_name="eval_historical_refund_initial",
+        db_path=eval_db_path,
+    )
+
+    previous_db_path = os.environ.get(
+        "STAYOPS_DB_PATH"
+    )
+
+    os.environ["STAYOPS_DB_PATH"] = str(
+        eval_db_path
+    )
+
+    try:
+        connection = sqlite3.connect(
+            eval_db_path
+        )
+
+        connection.row_factory = sqlite3.Row
+
+        try:
+            refund_case = connection.execute(
+                """
+                SELECT *
+                FROM cases
+                WHERE booking_id = ?
+                  AND category = 'refund'
+                  AND status = 'waiting_human'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (booking_id,),
+            ).fetchone()
+
+            compensation_request = connection.execute(
+                """
+                SELECT *
+                FROM compensation_requests
+                WHERE booking_id = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (booking_id,),
+            ).fetchone()
+
+            escalation = connection.execute(
+                """
+                SELECT *
+                FROM escalations
+                WHERE booking_id = ?
+                  AND category = 'refund'
+                  AND status = 'open'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (booking_id,),
+            ).fetchone()
+
+        finally:
+            connection.close()
+
+        if (
+            refund_case is None
+            or compensation_request is None
+            or escalation is None
+        ):
+            print(
+                "Initial refund workflow "
+                "was not created correctly."
+            )
+            print("FAIL")
+            return False
+
+        case_id = refund_case["case_id"]
+
+        compensation_request_id = (
+            compensation_request[
+                "compensation_request_id"
+            ]
+        )
+
+        escalation_id = (
+            escalation["escalation_id"]
+        )
+
+        # -----------------------------------------------------
+        # HUMAN APPROVES €150
+        # -----------------------------------------------------
+
+        record_compensation_decision(
+            compensation_request_id=
+                compensation_request_id,
+            decision="approved",
+            decided_by="GRO_254",
+            reason=(
+                "Confirmed service disruption."
+            ),
+            amount=150.0,
+            currency="EUR",
+        )
+
+        resolve_escalation(
+            escalation_id
+        )
+
+        resolution = resolve_case_if_ready(
+            case_id
+        )
+
+        if not resolution["resolved"]:
+            print(
+                "Refund Case did not resolve "
+                "before historical follow-up."
+            )
+            print("FAIL")
+            return False
+
+    finally:
+        if previous_db_path is None:
+            os.environ.pop(
+                "STAYOPS_DB_PATH",
+                None,
+            )
+        else:
+            os.environ["STAYOPS_DB_PATH"] = (
+                previous_db_path
+            )
+
+    # ---------------------------------------------------------
+    # TURN 2 — GUEST ASKS ABOUT OLD REFUND
+    # ---------------------------------------------------------
+
+    followup_result = await run_eval_turn(
+        guest_id=guest_id,
+        booking_id=booking_id,
+        message=(
+            "Can you confirm whether my refund "
+            "case is now complete?"
+        ),
+        scenario_name=(
+            "eval_historical_refund_followup"
+        ),
+        db_path=eval_db_path,
+    )
+
+    followup_output = str(
+        followup_result.final_output or ""
+    ).lower()
+
+    tool_calls = extract_tool_calls(
+        followup_result
+    )
+
+    historical_lookup_used = any(
+        call["tool_name"]
+        == "lookup_recent_cases_for_booking"
+        for call in tool_calls
+    )
+
+    compensation_lookup_used = any(
+        call["tool_name"]
+        == "lookup_compensation_review_for_case"
+        for call in tool_calls
+    )
+
+    # ---------------------------------------------------------
+    # VERIFY NOTHING NEW WAS CREATED
+    # ---------------------------------------------------------
+
+    connection = sqlite3.connect(
+        eval_db_path
+    )
+
+    connection.row_factory = sqlite3.Row
+
+    try:
+        refund_cases = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE booking_id = ?
+              AND category = 'refund'
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        compensation_requests = (
+            connection.execute(
+                """
+                SELECT *
+                FROM compensation_requests
+                WHERE booking_id = ?
+                """,
+                (booking_id,),
+            ).fetchall()
+        )
+
+        compensation_decisions = (
+            connection.execute(
+                """
+                SELECT d.*
+                FROM compensation_decisions AS d
+                JOIN compensation_requests AS r
+                  ON r.compensation_request_id =
+                     d.compensation_request_id
+                WHERE r.booking_id = ?
+                """,
+                (booking_id,),
+            ).fetchall()
+        )
+
+        refund_escalations = (
+            connection.execute(
+                """
+                SELECT *
+                FROM escalations
+                WHERE booking_id = ?
+                  AND category = 'refund'
+                """,
+                (booking_id,),
+            ).fetchall()
+        )
+
+    finally:
+        connection.close()
+
+    exactly_one_refund_case = (
+        len(refund_cases) == 1
+    )
+
+    exactly_one_request = (
+        len(compensation_requests) == 1
+    )
+
+    exactly_one_decision = (
+        len(compensation_decisions) == 1
+    )
+
+    exactly_one_escalation = (
+        len(refund_escalations) == 1
+    )
+
+    case_still_resolved = (
+        exactly_one_refund_case
+        and refund_cases[0]["status"]
+        == "resolved"
+    )
+
+    # The historical human decision should be communicated.
+    approval_communicated = (
+        "150" in followup_output
+        and (
+            "eur" in followup_output
+            or "€" in followup_output
+        )
+    )
+
+    passed = (
+        historical_lookup_used
+        and compensation_lookup_used
+        and exactly_one_refund_case
+        and exactly_one_request
+        and exactly_one_decision
+        and exactly_one_escalation
+        and case_still_resolved
+        and approval_communicated
+    )
+
+    print(
+        "Historical Case lookup used: "
+        f"{historical_lookup_used}"
+    )
+
+    print(
+        "Compensation review retrieved: "
+        f"{compensation_lookup_used}"
+    )
+
+    print(
+        f"Refund Cases after follow-up: "
+        f"{len(refund_cases)}"
+    )
+
+    print(
+        f"Compensation requests: "
+        f"{len(compensation_requests)}"
+    )
+
+    print(
+        f"Financial decisions: "
+        f"{len(compensation_decisions)}"
+    )
+
+    print(
+        f"Refund escalations: "
+        f"{len(refund_escalations)}"
+    )
+
+    print(
+        "Historical Case still resolved: "
+        f"{case_still_resolved}"
+    )
+
+    print(
+        "Recorded approval communicated: "
+        f"{approval_communicated}"
+    )
+
+    print(
+        "PASS"
+        if passed
+        else "FAIL"
+    )
+
+    if not passed:
+        print(
+            "Follow-up response: "
+            f"{followup_result.final_output}"
+        )
+
+    return passed
 
 async def main():
 
@@ -567,6 +1563,26 @@ async def main():
     multiturn_passed = (
         await run_multiturn_case_reuse_eval()
     )
+    handoff_passed = (
+        await run_human_handoff_eval()
+    )
+    financial_authority_passed = (
+        await run_financial_authority_eval()
+    )
+    financial_approval_passed = (
+        await run_financial_decision_eval(
+            decision="approved"
+        )
+    )
+    financial_denial_passed = (
+        await run_financial_decision_eval(
+            decision="denied"
+        )
+    )
+
+    historical_refund_passed = (
+        await run_historical_refund_followup_eval()
+    )
 
 
 
@@ -596,11 +1612,11 @@ async def main():
         overall_scenario_passed == scenario_count
         and idempotency_passed
         and multiturn_passed
-    )
-
-    print(
-    f"Multi-turn Case reuse:   "
-    f"{'PASS' if multiturn_passed else 'FAIL'}"
+        and handoff_passed
+        and financial_authority_passed
+        and financial_approval_passed
+        and financial_denial_passed
+        and historical_refund_passed
     )
 
     print("\n" + "=" * 70)
@@ -632,10 +1648,33 @@ async def main():
     )
 
     print(
+        f"Human handoff:           "
+        f"{'PASS' if handoff_passed else 'FAIL'}"
+    )
+    print(
+        f"Financial authority:      "
+        f"{'PASS' if financial_authority_passed else 'FAIL'}"
+    )
+    print(
+        f"Financial approval:      "
+        f"{'PASS' if financial_approval_passed else 'FAIL'}"
+    )
+
+    print(
+        f"Financial denial:        "
+        f"{'PASS' if financial_denial_passed else 'FAIL'}"
+    )
+
+    print(
+        f"Historical refund:       "
+        f"{'PASS' if historical_refund_passed else 'FAIL'}"
+    )
+
+    print(
         f"Overall suite:           "
         f"{'PASS' if suite_passed else 'FAIL'}"
     )
-    
+        
 
 async def run_multiturn_case_reuse_eval():
     """
