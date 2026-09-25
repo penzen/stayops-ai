@@ -15,6 +15,7 @@ from backend.api.schemas import (
     AgentChatRequest,
     AgentChatResponse,
     CompensationDecisionCreate,
+    CaseOperatorAction,
 )
 from backend.services.compensation import (
     get_compensation_evidence,
@@ -24,6 +25,9 @@ from backend.services.compensation import (
 from backend.services.cases import (
     get_case,
     get_open_cases_for_booking,
+    get_human_operations_queue,
+    claim_case,
+    return_case_to_agent,
 )
 
 from backend.agent.guest_agent import run_guest_agent
@@ -136,6 +140,66 @@ def read_reservation(booking_id: str):
 def read_booking_messages(booking_id: str):
     return get_booking_messages(booking_id)
 
+
+# ---------------------------------------------------------
+# HUMAN OPERATIONS
+# ---------------------------------------------------------
+
+@app.get("/operations/queue")
+def read_human_operations_queue():
+    return get_human_operations_queue()
+
+
+@app.patch("/cases/{case_id}/claim")
+def claim_case_for_operator(
+    case_id: str,
+    payload: CaseOperatorAction,
+):
+    try:
+        return claim_case(
+            case_id=case_id,
+            operator_id=payload.operator_id,
+        )
+
+    except ValueError as exc:
+        detail = str(exc)
+
+        status_code = (
+            404
+            if detail.startswith("Case does not exist:")
+            else 409
+        )
+
+        raise HTTPException(
+            status_code=status_code,
+            detail=detail,
+        )
+
+
+@app.patch("/cases/{case_id}/return-to-agent")
+def return_case_to_agent_endpoint(
+    case_id: str,
+    payload: CaseOperatorAction,
+):
+    try:
+        return return_case_to_agent(
+            case_id=case_id,
+            operator_id=payload.operator_id,
+        )
+
+    except ValueError as exc:
+        detail = str(exc)
+
+        status_code = (
+            404
+            if detail.startswith("Case does not exist:")
+            else 409
+        )
+
+        raise HTTPException(
+            status_code=status_code,
+            detail=detail,
+        )
 # ---------------------------------------------------------
 # CASES
 # ---------------------------------------------------------

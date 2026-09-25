@@ -189,6 +189,392 @@ def get_case(case_id: str):
     finally:
         connection.close()
 
+def claim_case(
+    case_id: str,
+    operator_id: str,
+):
+    """
+    Claim a Case that is waiting for human intervention.
+
+    Claiming records human ownership but does not itself
+    complete any operational work or resolve the Case.
+    """
+
+    operator_id = operator_id.strip()
+
+    if not operator_id:
+        raise ValueError(
+            "Operator ID is required."
+        )
+
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        if row is None:
+            raise ValueError(
+                f"Case does not exist: {case_id}"
+            )
+
+        case = dict(row)
+
+        if case["status"] != CaseStatus.WAITING_HUMAN:
+            raise ValueError(
+                "Case must be waiting_human "
+                "before it can be claimed."
+            )
+
+        operator = connection.execute(
+            """
+            SELECT team_id
+            FROM teams
+            WHERE team_id = ?
+            """,
+            (operator_id,),
+        ).fetchone()
+
+        if operator is None:
+            raise ValueError(
+                f"Operator does not exist: {operator_id}"
+            )
+
+        if case["assigned_to"] == operator_id:
+            return {
+                "claimed": False,
+                "reason": "already_claimed_by_operator",
+                "case": case,
+            }
+
+        if case["assigned_to"] is not None:
+            raise ValueError(
+                "Case is already claimed "
+                "by another operator."
+            )
+
+        connection.execute(
+            """
+            UPDATE cases
+            SET
+                assigned_to = ?,
+                claimed_at = CURRENT_TIMESTAMP
+            WHERE case_id = ?
+            """,
+            (
+                operator_id,
+                case_id,
+            ),
+        )
+
+        connection.commit()
+
+        updated_row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        return {
+            "claimed": True,
+            "reason": "case_claimed",
+            "case": dict(updated_row),
+        }
+
+    finally:
+        connection.close()
+
+def return_case_to_agent(
+    case_id: str,
+    operator_id: str,
+):
+    """
+    Return a human-owned Case to autonomous agent workflow.
+
+    Control may return only when the Case is waiting_human,
+    is owned by the supplied operator, and no Case-linked
+    task or escalation remains open.
+    """
+
+    operator_id = operator_id.strip()
+
+    if not operator_id:
+        raise ValueError(
+            "Operator ID is required."
+        )
+
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        if row is None:
+            raise ValueError(
+                f"Case does not exist: {case_id}"
+            )
+
+        case = dict(row)
+
+        if case["status"] != CaseStatus.WAITING_HUMAN:
+            raise ValueError(
+                "Case must be waiting_human "
+                "before it can return to the agent."
+            )
+
+        if case["assigned_to"] is None:
+            raise ValueError(
+                "Case must be claimed before it "
+                "can return to the agent."
+            )
+
+        if case["assigned_to"] != operator_id:
+            raise ValueError(
+                "Only the assigned operator can "
+                "return this Case to the agent."
+            )
+
+        open_tasks = connection.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM tasks
+            WHERE case_id = ?
+              AND task_status = 'open'
+            """,
+            (case_id,),
+        ).fetchone()["count"]
+
+        open_escalations = connection.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM escalations
+            WHERE case_id = ?
+              AND status = 'open'
+            """,
+            (case_id,),
+        ).fetchone()["count"]
+
+        if open_tasks > 0 or open_escalations > 0:
+            raise ValueError(
+                "Case still has open human work "
+                "and cannot return to the agent."
+            )
+
+        connection.execute(
+            """
+            UPDATE cases
+            SET
+                status = ?,
+                assigned_to = NULL,
+                claimed_at = NULL
+            WHERE case_id = ?
+            """,
+            (
+                CaseStatus.IN_PROGRESS,
+                case_id,
+            ),
+        )
+
+        connection.commit()
+
+        updated_row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        return {
+            "returned": True,
+            "reason": "case_returned_to_agent",
+            "open_tasks": 0,
+            "open_escalations": 0,
+            "case": dict(updated_row),
+        }
+
+    finally:
+        connection.close()
+
+
+def get_human_operations_queue():
+    """
+    Return active Cases currently blocked on human action.
+
+    The queue is a read-only operational projection built
+    from existing Case, booking, guest, property, task,
+    escalation, and team state.
+    """
+
+    connection = get_connection()
+
+    try:
+        case_rows = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE status = ?
+            ORDER BY created_at ASC
+            """,
+            (CaseStatus.WAITING_HUMAN,),
+        ).fetchall()
+
+        queue = []
+
+        for case_row in case_rows:
+            case = dict(case_row)
+
+            booking_row = connection.execute(
+                """
+                SELECT *
+                FROM bookings
+                WHERE booking_id = ?
+                """,
+                (case["booking_id"],),
+            ).fetchone()
+
+            booking = (
+                dict(booking_row)
+                if booking_row is not None
+                else None
+            )
+
+            guest = None
+
+            if booking is not None:
+                guest_row = connection.execute(
+                    """
+                    SELECT *
+                    FROM guests
+                    WHERE guest_id = ?
+                    """,
+                    (booking["guest_id"],),
+                ).fetchone()
+
+                if guest_row is not None:
+                    guest = dict(guest_row)
+
+            property_row = connection.execute(
+                """
+                SELECT *
+                FROM properties
+                WHERE property_id = ?
+                """,
+                (case["property_id"],),
+            ).fetchone()
+
+            property_data = (
+                dict(property_row)
+                if property_row is not None
+                else None
+            )
+
+            task_rows = connection.execute(
+                """
+                SELECT *
+                FROM tasks
+                WHERE case_id = ?
+                ORDER BY task_date ASC
+                """,
+                (case["case_id"],),
+            ).fetchall()
+
+            tasks = [
+                dict(row)
+                for row in task_rows
+            ]
+
+            escalation_rows = connection.execute(
+                """
+                SELECT *
+                FROM escalations
+                WHERE case_id = ?
+                ORDER BY created_at ASC
+                """,
+                (case["case_id"],),
+            ).fetchall()
+
+            escalations = [
+                dict(row)
+                for row in escalation_rows
+            ]
+
+            operator = None
+
+            if case["assigned_to"] is not None:
+                operator_row = connection.execute(
+                    """
+                    SELECT *
+                    FROM teams
+                    WHERE team_id = ?
+                    """,
+                    (case["assigned_to"],),
+                ).fetchone()
+
+                if operator_row is not None:
+                    operator = dict(operator_row)
+
+            open_escalations = [
+                escalation
+                for escalation in escalations
+                if escalation["status"] == "open"
+            ]
+
+            latest_open_escalation = (
+                open_escalations[-1]
+                if open_escalations
+                else None
+            )
+
+            handoff = {
+                "reason": (
+                    latest_open_escalation["reason"]
+                    if latest_open_escalation
+                    else None
+                ),
+                "priority": (
+                    latest_open_escalation["priority"]
+                    if latest_open_escalation
+                    else None
+                ),
+                "assigned_to": case["assigned_to"],
+                "claimed_at": case["claimed_at"],
+            }
+
+            queue.append(
+                {
+                    "case": case,
+                    "booking": booking,
+                    "guest": guest,
+                    "property": property_data,
+                    "tasks": tasks,
+                    "escalations": escalations,
+                    "operator": operator,
+                    "handoff": handoff,
+                }
+            )
+
+        return queue
+
+    finally:
+        connection.close()
+
 def get_open_cases_for_booking(booking_id: str):
     connection = get_connection()
 

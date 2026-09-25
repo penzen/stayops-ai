@@ -77,6 +77,9 @@ def create_tables(connection: sqlite3.Connection):
 
             summary TEXT,
 
+            assigned_to VARCHAR(64),
+            claimed_at DATETIME,
+
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             resolved_at DATETIME,
 
@@ -84,7 +87,10 @@ def create_tables(connection: sqlite3.Connection):
                 REFERENCES bookings(booking_id),
 
             FOREIGN KEY (property_id)
-                REFERENCES properties(property_id)
+                REFERENCES properties(property_id),
+
+            FOREIGN KEY (assigned_to)
+                REFERENCES teams(team_id)
         );
     """)
     # ---------------------------------------------------------
@@ -248,6 +254,43 @@ def add_case_links(connection: sqlite3.Connection):
 
     connection.commit()
 
+def add_case_handoff_fields(
+    connection: sqlite3.Connection,
+):
+    """
+    Add human ownership fields to Cases.
+
+    Safe to run repeatedly so both existing databases
+    and freshly bootstrapped databases use the same schema.
+    """
+
+    cursor = connection.cursor()
+
+    columns = {
+        row[1]
+        for row in cursor.execute(
+            "PRAGMA table_info(cases);"
+        ).fetchall()
+    }
+
+    if "assigned_to" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE cases
+            ADD COLUMN assigned_to VARCHAR(64)
+            REFERENCES teams(team_id);
+            """
+        )
+
+    if "claimed_at" not in columns:
+        cursor.execute(
+            """
+            ALTER TABLE cases
+            ADD COLUMN claimed_at DATETIME;
+            """
+        )
+
+    connection.commit()
 
 def create_indexes(connection: sqlite3.Connection):
     cursor = connection.cursor()
@@ -493,6 +536,7 @@ def main():
     try:
         create_tables(connection)
         add_case_links(connection)
+        add_case_handoff_fields(connection)
         create_indexes(connection)
 
         seed_access_systems(connection)

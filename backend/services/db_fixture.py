@@ -6,6 +6,7 @@ from backend.database.add_stayops_tables import (
     create_tables,
     add_case_links,
     create_indexes,
+    add_case_handoff_fields,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -76,6 +77,7 @@ def reset_eval_database() -> Path:
         # the current StayOps schema.
         create_tables(connection)
         add_case_links(connection)
+        add_case_handoff_fields(connection)
         create_indexes(connection)
         
         # Delete dependent operational records first.

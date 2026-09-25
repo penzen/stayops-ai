@@ -41,6 +41,10 @@ class AgentChatRequest(BaseModel):
     booking_id: str
     message: str
 
+class CaseOperatorAction(BaseModel):
+    operator_id: str
+
+
 class AgentChatResponse(BaseModel):
     guest_id: str
     booking_id: str
