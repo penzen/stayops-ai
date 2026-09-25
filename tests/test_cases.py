@@ -4,7 +4,9 @@ from backend.services.cases import (
     ensure_case,
     get_case,
     get_open_cases_for_booking,
+    get_recent_cases_for_booking,
 )
+from backend.services.db import get_connection
 
 PROPERTY_ID = "prop_15"
 BOOKING_ID = "book_demo_current_001"
@@ -322,6 +324,46 @@ def test_case_adopts_existing_unlinked_escalation(test_db):
         adopted_escalation["escalation"]["case_id"]
         == case_id
     )
+
+
+def test_case_history_includes_resolved_cases(
+    test_db,
+):
+    result = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="refund",
+        summary="Guest requested compensation.",
+    )
+
+    case_id = result["case"]["case_id"]
+
+    connection = get_connection()
+
+    try:
+        connection.execute(
+            """
+            UPDATE cases
+            SET status = 'resolved',
+                resolved_at = CURRENT_TIMESTAMP
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        )
+
+        connection.commit()
+
+    finally:
+        connection.close()
+
+    history = get_recent_cases_for_booking(
+        booking_id=BOOKING_ID,
+        category="refund",
+    )
+
+    assert len(history) == 1
+    assert history[0]["case_id"] == case_id
+    assert history[0]["status"] == "resolved"
 
 """
 FIRST REPORT

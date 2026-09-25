@@ -47,6 +47,13 @@ class AgentChatResponse(BaseModel):
     response: str
     activities: list[str]
 
+class CompensationDecisionCreate(BaseModel):
+    decision: str
+    decided_by: str
+    reason: str
+    amount: float | None = None
+    currency: str | None = None
+
 """
 These define what JSON FastAPI expects for write operations.
 

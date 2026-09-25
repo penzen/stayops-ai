@@ -17,9 +17,17 @@ from backend.services.cases import (
     get_case,
     get_case_context,
     get_open_cases_for_booking,
+    get_recent_cases_for_booking,
     ensure_case,
     transition_case_status,
     resolve_case_if_ready,
+)
+
+from backend.services.compensation import (
+    ensure_compensation_request as ensure_compensation_request_service,
+    get_compensation_request_by_case,
+    get_compensation_evidence,
+    build_compensation_assessment,
 )
 
 mcp = MCPServer("StayOps Operations")
@@ -339,9 +347,108 @@ def lookup_operational_playbook(
     }
 
 # ---------------------------------------------------------
+# COMPENSATION
+# ---------------------------------------------------------
+
+
+@mcp.tool()
+def ensure_compensation_review(
+    case_id: str,
+    reason: str,
+    requested_outcome: str | None = None,
+    related_case_id: str | None = None,
+) -> dict:
+    """
+    Create or reuse the compensation request owned by a
+    refund Case.
+
+    This records the guest's request for human financial
+    review. It does not approve, deny, or determine an amount.
+    """
+
+    return ensure_compensation_request_service(
+        case_id=case_id,
+        reason=reason,
+        requested_outcome=requested_outcome,
+        related_case_id=related_case_id,
+    )
+
+
+@mcp.tool()
+def lookup_compensation_evidence(
+    compensation_request_id: str,
+) -> dict:
+    """
+    Retrieve the deterministic operational evidence connected
+    to a compensation request.
+
+    This is evidence for review only and does not make a
+    financial decision.
+    """
+
+    try:
+        evidence = get_compensation_evidence(
+            compensation_request_id
+        )
+
+        return {
+            "found": True,
+            "evidence": evidence,
+        }
+
+    except ValueError:
+        return {
+            "found": False,
+            "reason": "compensation_request_not_found",
+        }
+
+
+@mcp.tool()
+def assess_compensation_request(
+    compensation_request_id: str,
+) -> dict:
+    """
+    Build a deterministic compensation assessment from the
+    available operational evidence.
+
+    The assessment may describe severity and review factors,
+    but cannot approve, deny, or assign money.
+    """
+
+    return build_compensation_assessment(
+        compensation_request_id
+    )
+
+
+# ---------------------------------------------------------
 # OPERATIONAL TASKS
 # ---------------------------------------------------------
 
+@mcp.tool()
+def lookup_recent_cases_for_booking(
+    booking_id: str,
+    category: str | None = None,
+    limit: int = 5,
+) -> dict:
+    """
+    Retrieve recent Case history for a booking, including resolved
+    Cases.
+
+    Use this for follow-up questions about an issue that may already
+    have completed its workflow.
+    """
+
+    cases = get_recent_cases_for_booking(
+        booking_id=booking_id,
+        category=category,
+        limit=limit,
+    )
+
+    return {
+        "booking_id": booking_id,
+        "category": category,
+        "cases": cases,
+    }
 
 @mcp.tool()
 def ensure_operations_task(
@@ -366,6 +473,40 @@ def ensure_operations_task(
         case_id=case_id,
     )
 
+@mcp.tool()
+def lookup_compensation_review_for_case(
+    case_id: str,
+) -> dict:
+    """
+    Retrieve the compensation workflow associated with a refund Case.
+
+    This allows the agent to rediscover the compensation request
+    from persistent Case state on later conversation turns.
+
+    The returned evidence may contain a recorded human financial
+    decision. This tool does not create or modify that decision.
+    """
+
+    request = get_compensation_request_by_case(
+        case_id
+    )
+
+    if request is None:
+        return {
+            "found": False,
+            "reason": "compensation_request_not_found",
+            "case_id": case_id,
+        }
+
+    evidence = get_compensation_evidence(
+        request["compensation_request_id"]
+    )
+
+    return {
+        "found": True,
+        "compensation_request": request,
+        "evidence": evidence,
+    }
 
 # ---------------------------------------------------------
 # HUMAN ESCALATION

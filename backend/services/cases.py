@@ -527,6 +527,55 @@ def resolve_case_if_ready(case_id: str):
                 "case": case,
             }
 
+        # ---------------------------------------------------------
+        # REFUND CASE FINANCIAL RESOLUTION GATE
+        # ---------------------------------------------------------
+
+        if case["category"] == IssueCategory.REFUND:
+            compensation_request = connection.execute(
+                """
+                SELECT *
+                FROM compensation_requests
+                WHERE case_id = ?
+                """,
+                (case_id,),
+            ).fetchone()
+
+            if compensation_request is None:
+                return {
+                    "resolved": False,
+                    "reason": "compensation_request_missing",
+                    "open_tasks": open_tasks,
+                    "open_escalations": open_escalations,
+                    "case": case,
+                }
+
+            compensation_request = dict(
+                compensation_request
+            )
+
+            decision = connection.execute(
+                """
+                SELECT *
+                FROM compensation_decisions
+                WHERE compensation_request_id = ?
+                """,
+                (
+                    compensation_request[
+                        "compensation_request_id"
+                    ],
+                ),
+            ).fetchone()
+
+            if decision is None:
+                return {
+                    "resolved": False,
+                    "reason": "financial_decision_pending",
+                    "open_tasks": open_tasks,
+                    "open_escalations": open_escalations,
+                    "case": case,
+                }
+
         connection.execute(
             """
             UPDATE cases
@@ -562,6 +611,80 @@ def resolve_case_if_ready(case_id: str):
     finally:
         connection.close()
 
+
+def get_recent_cases_for_booking(
+    booking_id: str,
+    category: str | None = None,
+    limit: int = 5,
+):
+    """
+    Retrieve recent Cases for a booking, including resolved Cases.
+
+    This is intended for historical follow-up questions where an
+    issue may already have completed its workflow.
+    """
+
+    if limit <= 0:
+        raise ValueError(
+            "Case history limit must be greater than zero."
+        )
+
+    normalized_category = None
+
+    if category is not None:
+        normalized_category = category.strip().lower()
+
+        try:
+            normalized_category = IssueCategory(
+                normalized_category
+            ).value
+        except ValueError:
+            raise ValueError(
+                f"Invalid case category: {category}"
+            )
+
+    connection = get_connection()
+
+    try:
+        if normalized_category is None:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM cases
+                WHERE booking_id = ?
+                ORDER BY created_at DESC, rowid DESC
+                LIMIT ?
+                """,
+                (
+                    booking_id,
+                    limit,
+                ),
+            ).fetchall()
+
+        else:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM cases
+                WHERE booking_id = ?
+                AND category = ?
+                ORDER BY created_at DESC, rowid DESC
+                LIMIT ?
+                """,
+                (
+                    booking_id,
+                    normalized_category,
+                    limit,
+                ),
+            ).fetchall()
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+    finally:
+        connection.close()
 
 """
 get_case_context(case_id)

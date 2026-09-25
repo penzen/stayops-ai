@@ -102,6 +102,8 @@ def print_summary(connection: sqlite3.Connection):
         "teams",
         "bookings",
         "cases",
+        "compensation_requests",
+        "compensation_decisions",
         "tasks",
         "access_systems",
         "messages",

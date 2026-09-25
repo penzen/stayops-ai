@@ -14,6 +14,11 @@ from backend.api.schemas import (
     EscalationCreate,
     AgentChatRequest,
     AgentChatResponse,
+    CompensationDecisionCreate,
+)
+from backend.services.compensation import (
+    get_compensation_evidence,
+    record_compensation_decision,
 )
 
 from backend.services.cases import (
@@ -312,6 +317,53 @@ def resolve_existing_escalation(
 
     return escalation
 
+# ---------------------------------------------------------
+# COMPENSATION
+# ---------------------------------------------------------
+
+
+@app.get(
+    "/compensation-requests/{compensation_request_id}/evidence"
+)
+def read_compensation_evidence(
+    compensation_request_id: str,
+):
+    try:
+        return get_compensation_evidence(
+            compensation_request_id
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post(
+    "/compensation-requests/{compensation_request_id}/decision"
+)
+def create_compensation_decision(
+    compensation_request_id: str,
+    payload: CompensationDecisionCreate,
+):
+    try:
+        return record_compensation_decision(
+            compensation_request_id=(
+                compensation_request_id
+            ),
+            decision=payload.decision,
+            decided_by=payload.decided_by,
+            reason=payload.reason,
+            amount=payload.amount,
+            currency=payload.currency,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
 
 # ---------------------------------------------------------
 # AGENT
@@ -397,6 +449,11 @@ async def agent_chat(payload: AgentChatRequest):
             "update_case_workflow_status": "Operational case status updated",
             "attempt_case_resolution": "Operational case resolution checked",
             "lookup_operational_playbook": "Operational playbook retrieved",
+            "ensure_compensation_review":"Compensation request created or reused",
+            "lookup_compensation_evidence":"Compensation evidence reviewed",
+            "assess_compensation_request":"Compensation assessment prepared",
+            "lookup_compensation_review_for_case":"Compensation review retrieved",
+            "lookup_recent_cases_for_booking":"Operational case history retrieved",
         }
 
         activities = []

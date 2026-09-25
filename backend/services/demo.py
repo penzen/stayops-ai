@@ -81,6 +81,7 @@ def reset_demo_state(
     - tasks
     - messages
     - incidents
+    - compensation requests
     - cases
     """
 
@@ -123,6 +124,27 @@ def reset_demo_state(
             """,
             (booking_id,),
         )
+
+        decision_cursor = connection.execute(
+            """
+            DELETE FROM compensation_decisions
+            WHERE compensation_request_id IN (
+                SELECT compensation_request_id
+                FROM compensation_requests
+                WHERE booking_id = ?
+            )
+            """,
+            (booking_id,),
+        )
+
+        compensation_cursor = connection.execute(
+            """
+            DELETE FROM compensation_requests
+            WHERE booking_id = ?
+            """,
+            (booking_id,),
+        )
+
         case_cursor = connection.execute(
             """
             DELETE FROM cases
@@ -145,8 +167,12 @@ def reset_demo_state(
                     message_cursor.rowcount,
                 "incidents":
                     incident_cursor.rowcount,
+                "compensation_requests":
+                    compensation_cursor.rowcount,
                 "cases":
                     case_cursor.rowcount,
+                "compensation_decisions":
+                     decision_cursor.rowcount,
             },
         }
 

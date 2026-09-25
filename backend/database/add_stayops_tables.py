@@ -87,6 +87,68 @@ def create_tables(connection: sqlite3.Connection):
                 REFERENCES properties(property_id)
         );
     """)
+    # ---------------------------------------------------------
+    # COMPENSATION REQUESTS
+    # Financial requests owned by refund Cases.
+    # ---------------------------------------------------------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS compensation_requests (
+            compensation_request_id TEXT PRIMARY KEY,
+
+            case_id TEXT NOT NULL UNIQUE,
+            related_case_id TEXT,
+
+            booking_id VARCHAR(64) NOT NULL,
+            property_id VARCHAR(64) NOT NULL,
+
+            reason TEXT NOT NULL,
+            requested_outcome TEXT,
+
+            status VARCHAR(50) NOT NULL DEFAULT 'pending_review',
+
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+            FOREIGN KEY (case_id)
+                REFERENCES cases(case_id),
+
+            FOREIGN KEY (related_case_id)
+                REFERENCES cases(case_id),
+
+            FOREIGN KEY (booking_id)
+                REFERENCES bookings(booking_id),
+
+            FOREIGN KEY (property_id)
+                REFERENCES properties(property_id)
+        );
+    """)
+
+    # ---------------------------------------------------------
+    # COMPENSATION DECISIONS
+    # Final human financial decisions for compensation requests.
+    # ---------------------------------------------------------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS compensation_decisions (
+            compensation_decision_id TEXT PRIMARY KEY,
+
+            compensation_request_id TEXT NOT NULL UNIQUE,
+
+            decision VARCHAR(50) NOT NULL,
+
+            amount REAL,
+            currency VARCHAR(10),
+
+            reason TEXT NOT NULL,
+            decided_by VARCHAR(100) NOT NULL,
+
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+            FOREIGN KEY (compensation_request_id)
+                REFERENCES compensation_requests(
+                    compensation_request_id
+                )
+        );
+    """)
 
     # ---------------------------------------------------------
     # INCIDENTS
@@ -229,6 +291,13 @@ def create_indexes(connection: sqlite3.Connection):
             status
         );
     """)
+    
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_compensation_decision_request
+        ON compensation_decisions(
+            compensation_request_id
+        );
+    """)
 
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_tasks_case
@@ -238,6 +307,21 @@ def create_indexes(connection: sqlite3.Connection):
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_escalations_case
         ON escalations(case_id);
+    """)
+    
+    cursor.execute("""
+    CREATE INDEX IF NOT EXISTS idx_compensation_booking
+    ON compensation_requests(booking_id);
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_compensation_status
+        ON compensation_requests(status);
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_compensation_related_case
+        ON compensation_requests(related_case_id);
     """)
 
     connection.commit()

@@ -2,6 +2,11 @@ import shutil
 import sqlite3
 from pathlib import Path
 
+from backend.database.add_stayops_tables import (
+    create_tables,
+    add_case_links,
+    create_indexes,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -40,6 +45,8 @@ def reset_eval_database() -> Path:
     - tasks
     - incidents
     - escalations
+    - compensation decisions
+    - compensation requests
     - cases
     """
 
@@ -61,8 +68,16 @@ def reset_eval_database() -> Path:
     connection.execute(
         "PRAGMA foreign_keys = ON;"
     )
+    
 
     try:
+
+        # Ensure the copied evaluation database uses
+        # the current StayOps schema.
+        create_tables(connection)
+        add_case_links(connection)
+        create_indexes(connection)
+        
         # Delete dependent operational records first.
         connection.execute(
             """
@@ -98,6 +113,26 @@ def reset_eval_database() -> Path:
 
         # Cases must be deleted after tasks and escalations
         # because those records may reference a Case.
+
+        connection.execute(
+            """
+            DELETE FROM compensation_decisions
+            WHERE compensation_request_id IN (
+                SELECT compensation_request_id
+                FROM compensation_requests
+                WHERE booking_id = ?
+            )
+            """,
+            (DEMO_BOOKING_ID,),
+        )
+
+        connection.execute(
+            """
+            DELETE FROM compensation_requests
+            WHERE booking_id = ?
+            """,
+            (DEMO_BOOKING_ID,),
+        )
         connection.execute(
             """
             DELETE FROM cases
