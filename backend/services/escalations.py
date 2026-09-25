@@ -3,7 +3,7 @@ import uuid
 from .db import get_connection
 from backend.domain.enums import IssueCategory, Priority, CaseStatus
 
-
+from .audit import record_case_event
 
 
 def create_escalation(
@@ -90,6 +90,21 @@ def create_escalation(
                 case_id,
             ),
         )
+        if case_id is not None:
+            record_case_event(
+                case_id=case_id,
+                event_type="escalation_created",
+                actor_type="agent",
+                actor_id="guest_ops_agent",
+                summary="Human escalation created.",
+                metadata={
+                    "escalation_id": escalation_id,
+                    "category": category,
+                    "priority": priority,
+                    "reason": reason,
+                },
+                connection=connection,
+            )
 
         connection.commit()
 
@@ -406,6 +421,46 @@ def resolve_escalation(escalation_id: str):
                 escalation_id,
             ),
         )
+        if escalation["case_id"] is not None:
+            case_row = connection.execute(
+                """
+                SELECT assigned_to
+                FROM cases
+                WHERE case_id = ?
+                """,
+                (escalation["case_id"],),
+            ).fetchone()
+
+            operator_id = (
+                case_row["assigned_to"]
+                if (
+                    case_row is not None
+                    and case_row["assigned_to"] is not None
+                )
+                else None
+            )
+
+            record_case_event(
+                case_id=escalation["case_id"],
+                event_type="escalation_resolved",
+                actor_type=(
+                    "human"
+                    if operator_id is not None
+                    else "system"
+                ),
+                actor_id=(
+                    operator_id
+                    if operator_id is not None
+                    else "escalation_service"
+                ),
+                summary="Human escalation resolved.",
+                metadata={
+                    "escalation_id": escalation_id,
+                    "category": escalation["category"],
+                    "priority": escalation["priority"],
+                },
+                connection=connection,
+            )
 
         connection.commit()
 

@@ -145,6 +145,18 @@ def reset_demo_state(
             (booking_id,),
         )
 
+        event_cursor = connection.execute(
+            """
+            DELETE FROM case_events
+            WHERE case_id IN (
+                SELECT case_id
+                FROM cases
+                WHERE booking_id = ?
+            )
+            """,
+            (booking_id,),
+        )
+
         case_cursor = connection.execute(
             """
             DELETE FROM cases
@@ -173,6 +185,8 @@ def reset_demo_state(
                     case_cursor.rowcount,
                 "compensation_decisions":
                      decision_cursor.rowcount,
+                "case_events":
+                     event_cursor.rowcount,
             },
         }
 

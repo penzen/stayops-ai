@@ -1,7 +1,7 @@
 import uuid
 
 from backend.services.db import get_connection
-
+from backend.services.audit import record_case_event
 
 def get_compensation_request_by_case(
     case_id: str,
@@ -166,6 +166,19 @@ def ensure_compensation_request(
                 "pending_review",
             ),
         )
+        record_case_event(
+            case_id=case_id,
+            event_type="compensation_review_created",
+            actor_type="agent",
+            actor_id="guest_ops_agent",
+            summary="Compensation review requested.",
+            metadata={
+                "compensation_request_id": compensation_request_id,
+                "related_case_id": related_case_id,
+                "requested_outcome": requested_outcome,
+            },
+            connection=connection,
+        )
 
         connection.commit()
 
@@ -313,6 +326,9 @@ def record_compensation_decision(
                 f"{compensation_request_id}"
             )
 
+        compensation_request = dict(
+            request_row)
+
         # -------------------------------------------------
         # FINAL DECISIONS ARE IDEMPOTENT
         # -------------------------------------------------
@@ -378,6 +394,31 @@ def record_compensation_decision(
                 normalized_decision,
                 compensation_request_id,
             ),
+        )
+        record_case_event(
+            case_id=compensation_request["case_id"],
+            event_type="compensation_decision_recorded",
+            actor_type="human",
+            actor_id=decided_by,
+            summary=(
+                "Compensation decision recorded: "
+                f"{normalized_decision}."
+            ),
+            metadata={
+                "compensation_request_id":
+                    compensation_request_id,
+                "compensation_decision_id":
+                    compensation_decision_id,
+                "decision":
+                    normalized_decision,
+                "amount":
+                    amount,
+                "currency":
+                    currency,
+                "reason":
+                    reason,
+            },
+            connection=connection,
         )
 
         connection.commit()

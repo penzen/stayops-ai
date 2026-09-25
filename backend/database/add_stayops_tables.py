@@ -93,6 +93,32 @@ def create_tables(connection: sqlite3.Connection):
                 REFERENCES teams(team_id)
         );
     """)
+
+    # ---------------------------------------------------------
+    # CASE EVENTS
+    # Append-only operational audit history for Cases.
+    # ---------------------------------------------------------
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS case_events (
+            case_event_id TEXT PRIMARY KEY,
+
+            case_id TEXT NOT NULL,
+
+            event_type VARCHAR(100) NOT NULL,
+
+            actor_type VARCHAR(50) NOT NULL,
+            actor_id VARCHAR(100),
+
+            summary TEXT NOT NULL,
+            metadata_json TEXT,
+
+            created_at DATETIME NOT NULL
+                DEFAULT CURRENT_TIMESTAMP,
+
+            FOREIGN KEY (case_id)
+                REFERENCES cases(case_id)
+        );
+    """)
     # ---------------------------------------------------------
     # COMPENSATION REQUESTS
     # Financial requests owned by refund Cases.
@@ -318,6 +344,14 @@ def create_indexes(connection: sqlite3.Connection):
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_incidents_booking
         ON incidents(booking_id);
+    """)
+    
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_case_events_case_time
+        ON case_events(
+            case_id,
+            created_at
+        );
     """)
 
     cursor.execute("""

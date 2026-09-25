@@ -6,6 +6,7 @@ from backend.services.demo import (
     get_demo_stays,
     reset_demo_state,
 )
+from backend.services.audit import get_case_timeline
 
 from backend.api.schemas import (
     MessageCreate,
@@ -216,6 +217,16 @@ def read_case(case_id: str):
 
     return case
 
+@app.get("/cases/{case_id}/timeline")
+def read_case_timeline(case_id: str):
+    try:
+        return get_case_timeline(case_id)
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        )
 
 @app.get("/reservations/{booking_id}/cases")
 def read_booking_cases(booking_id: str):

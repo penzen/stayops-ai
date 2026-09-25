@@ -49,6 +49,7 @@ def reset_eval_database() -> Path:
     - compensation decisions
     - compensation requests
     - cases
+    - case events
     """
 
     if not SOURCE_DB.exists():
@@ -139,6 +140,17 @@ def reset_eval_database() -> Path:
             """
             DELETE FROM cases
             WHERE booking_id = ?
+            """,
+            (DEMO_BOOKING_ID,),
+        )
+        connection.execute(
+            """
+            DELETE FROM case_events
+            WHERE case_id IN (
+                SELECT case_id
+                FROM cases
+                WHERE booking_id = ?
+            )
             """,
             (DEMO_BOOKING_ID,),
         )

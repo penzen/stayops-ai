@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from .db import get_connection
-
+from .audit import record_case_event
 
 def create_task(
     property_id: str,
@@ -52,6 +52,25 @@ def create_task(
                 case_id,
             ),
         )
+        if case_id is not None:
+            record_case_event(
+                case_id=case_id,
+                event_type="task_created",
+                actor_type=(
+                    "agent"
+                    if assigned_by == "AI_AGENT"
+                    else "human"
+                ),
+                actor_id=assigned_by,
+                summary="Operational task created.",
+                metadata={
+                    "task_id": task_id,
+                    "category": category,
+                    "title": title,
+                    "assigned_to": assigned_to,
+                },
+                connection=connection,
+            )
 
         connection.commit()
 
@@ -294,6 +313,46 @@ def complete_task(task_id: str):
             """,
             (task_id,),
         )
+        if task["case_id"] is not None:
+            case_row = connection.execute(
+                """
+                SELECT assigned_to
+                FROM cases
+                WHERE case_id = ?
+                """,
+                (task["case_id"],),
+            ).fetchone()
+
+            operator_id = (
+                case_row["assigned_to"]
+                if (
+                    case_row is not None
+                    and case_row["assigned_to"] is not None
+                )
+                else None
+            )
+
+            record_case_event(
+                case_id=task["case_id"],
+                event_type="task_completed",
+                actor_type=(
+                    "human"
+                    if operator_id is not None
+                    else "system"
+                ),
+                actor_id=(
+                    operator_id
+                    if operator_id is not None
+                    else "task_service"
+                ),
+                summary="Operational task completed.",
+                metadata={
+                    "task_id": task_id,
+                    "category": task["category"],
+                    "title": task["title"],
+                },
+                connection=connection,
+            )
 
         connection.commit()
 

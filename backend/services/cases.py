@@ -1,5 +1,5 @@
 import uuid
-
+from .audit import record_case_event
 from backend.domain.enums import CaseStatus, IssueCategory
 from .db import get_connection
 
@@ -117,6 +117,19 @@ def create_case(
                 CaseStatus.OPEN,
                 summary,
             ),
+        )
+        record_case_event(
+            case_id=case_id,
+            event_type="case_created",
+            actor_type="system",
+            actor_id="case_service",
+            summary=f"{category.capitalize()} Case created.",
+            metadata={
+                "booking_id": booking_id,
+                "property_id": property_id,
+                "category": category,
+            },
+            connection=connection,
         )
 
         connection.commit()
@@ -272,6 +285,17 @@ def claim_case(
                 case_id,
             ),
         )
+        record_case_event(
+            case_id=case_id,
+            event_type="case_claimed",
+            actor_type="human",
+            actor_id=operator_id,
+            summary="Operator claimed the Case.",
+            metadata={
+                "operator_id": operator_id,
+            },
+            connection=connection,
+        )
 
         connection.commit()
 
@@ -388,6 +412,19 @@ def return_case_to_agent(
                 CaseStatus.IN_PROGRESS,
                 case_id,
             ),
+        )
+        record_case_event(
+            case_id=case_id,
+            event_type="case_returned_to_agent",
+            actor_type="human",
+            actor_id=operator_id,
+            summary="Operator returned control to the agent.",
+            metadata={
+                "operator_id": operator_id,
+                "from_status": CaseStatus.WAITING_HUMAN.value,
+                "to_status": CaseStatus.IN_PROGRESS.value,
+            },
+            connection=connection,
         )
 
         connection.commit()
@@ -785,6 +822,21 @@ def transition_case_status(
                     case_id,
                 ),
             )
+        record_case_event(
+            case_id=case_id,
+            event_type="case_status_changed",
+            actor_type="system",
+            actor_id="case_service",
+            summary=(
+                "Case status changed from "
+                f"{current_status.value} to {new_status.value}."
+            ),
+            metadata={
+                "from_status": current_status.value,
+                "to_status": new_status.value,
+            },
+            connection=connection,
+        )
 
         connection.commit()
 
@@ -973,6 +1025,20 @@ def resolve_case_if_ready(case_id: str):
                 CaseStatus.RESOLVED,
                 case_id,
             ),
+        )
+        record_case_event(
+            case_id=case_id,
+            event_type="case_resolved",
+            actor_type="system",
+            actor_id="case_resolution_service",
+            summary="Case resolution verified and Case resolved.",
+            metadata={
+                "from_status": case["status"],
+                "to_status": CaseStatus.RESOLVED.value,
+                "open_tasks": 0,
+                "open_escalations": 0,
+            },
+            connection=connection,
         )
 
         connection.commit()
