@@ -187,3 +187,130 @@ def test_refund_workflow_returns_resolved_history_without_duplicates(
     assert len(escalations) == 1
 
     assert refund_cases[0]["status"] == "resolved"
+
+
+def test_refund_workflow_creates_new_request_after_resolved_history(
+    test_db,
+):
+    first = ensure_refund_workflow(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        reason="Heating failed during the stay.",
+        requested_outcome="Full refund",
+        explicit_new_request=True,
+    )
+
+    first_case_id = first["case"]["case_id"]
+    first_request_id = (
+        first["compensation_request"][
+            "compensation_request_id"
+        ]
+    )
+    first_escalation_id = (
+        first["escalation"]["escalation_id"]
+    )
+
+    record_compensation_decision(
+        compensation_request_id=first_request_id,
+        decision="approved",
+        decided_by="GRO_254",
+        reason="Confirmed service disruption.",
+        amount=150.0,
+        currency="EUR",
+    )
+
+    resolve_escalation(
+        first_escalation_id
+    )
+
+    resolution = resolve_case_if_ready(
+        first_case_id
+    )
+
+    assert resolution["resolved"] is True
+
+    second = ensure_refund_workflow(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        reason=(
+            "The heating failed again during a different "
+            "part of the stay and I want another refund review."
+        ),
+        requested_outcome="Additional refund",
+        explicit_new_request=True,
+    )
+
+    assert second["historical"] is False
+    assert second["created"] is True
+
+    assert (
+        second["case"]["case_id"]
+        != first_case_id
+    )
+
+    assert (
+        second["compensation_request"][
+            "compensation_request_id"
+        ]
+        != first_request_id
+    )
+
+    assert (
+        second["escalation"]["escalation_id"]
+        != first_escalation_id
+    )
+
+    assert second["case"]["status"] == "waiting_human"
+    assert (
+        second["compensation_request"]["status"]
+        == "pending_review"
+    )
+    assert second["escalation"]["status"] == "open"
+
+    connection = get_connection()
+
+    try:
+        refund_cases = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE booking_id = ?
+              AND category = 'refund'
+            ORDER BY created_at ASC
+            """,
+            (BOOKING_ID,),
+        ).fetchall()
+
+        requests = connection.execute(
+            """
+            SELECT *
+            FROM compensation_requests
+            WHERE booking_id = ?
+            """,
+            (BOOKING_ID,),
+        ).fetchall()
+
+        escalations = connection.execute(
+            """
+            SELECT *
+            FROM escalations
+            WHERE booking_id = ?
+              AND category = 'refund'
+            """,
+            (BOOKING_ID,),
+        ).fetchall()
+
+    finally:
+        connection.close()
+
+    assert len(refund_cases) == 2
+    assert len(requests) == 2
+    assert len(escalations) == 2
+
+    old_case = next(
+        case
+        for case in refund_cases
+        if case["case_id"] == first_case_id
+    )
+
+    assert old_case["status"] == "resolved"

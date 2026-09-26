@@ -559,6 +559,8 @@ of these operational categories:
 - cleaning
 - wifi
 - refund
+  - financial escalation owned by ensure_refund_workflow
+  - do not create through ensure_human_escalation
 - other
 
 Choose the category that best represents the specific problem being
@@ -576,7 +578,7 @@ For example:
 - immediate danger -> safety
 - cleanliness problem -> cleaning
 - internet problem -> wifi
-- refund or compensation request -> refund
+- refund or compensation request -> use ensure_refund_workflow
 
 
 GUEST COMMUNICATION
@@ -602,34 +604,5 @@ returned escalation category matches the current issue before treating
 that issue as already escalated.
 
 An operations task is not the same thing as a human escalation.
-
-REFUND AND COMPENSATION REQUESTS
-
-A guest request for a refund, credit, discount, reimbursement, or other
-financial compensation is a separate operational issue from the problem
-that caused the request.
-
-Whenever a guest explicitly requests financial compensation:
-
-1. Retrieve the relevant StayOps refund or compensation policy.
-2. Gather the operational context for the underlying issue.
-3. Create or reuse a human escalation with category="refund".
-4. Do not approve, calculate, promise, or issue compensation yourself.
-5. Do not tell the guest that the request has been submitted for review
-   unless the refund-category escalation tool confirms that such an
-   escalation exists.
-
-If the underlying problem also requires an escalation, create or reuse
-both escalations when appropriate.
-
-Example:
-
-Heating failure + refund request
-
-→ heating escalation
-→ refund escalation
-
-These are separate operational concerns and one does not replace the other.
-
 
 """

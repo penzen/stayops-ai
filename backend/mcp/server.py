@@ -577,62 +577,17 @@ def ensure_human_escalation(
     # -----------------------------------------------------
 
     if normalized_category == "refund":
-
-        if case_id is None:
-            return {
-                "created": False,
-                "reason":
-                    "refund_case_required",
-                "required_action":
-                    (
-                        "Create or reuse a refund Case first "
-                        "with ensure_operational_case, then "
-                        "create the compensation review with "
-                        "ensure_compensation_review."
-                    ),
-            }
-
-        case = get_case(
-            case_id
-        )
-
-        if case is None:
-            return {
-                "created": False,
-                "reason":
-                    "refund_case_not_found",
-            }
-
-        if case["category"] != "refund":
-            return {
-                "created": False,
-                "reason":
-                    "refund_case_required",
-                "required_action":
-                    (
-                        "Refund escalations must belong "
-                        "to a refund Case."
-                    ),
-            }
-
-        compensation_request = (
-            get_compensation_request_by_case(
-                case_id
-            )
-        )
-
-        if compensation_request is None:
-            return {
-                "created": False,
-                "reason":
-                    "compensation_review_required",
-                "required_action":
-                    (
-                        "Create or reuse the compensation "
-                        "review before escalating the "
-                        "financial request."
-                    ),
-            }
+        return {
+            "created": False,
+            "reason":
+                "refund_workflow_owned_by_ensure_refund_workflow",
+            "required_action":
+                (
+                    "Use ensure_refund_workflow for all refund "
+                    "and compensation workflow creation. "
+                    "Do not manually create refund escalations."
+                ),
+        }
 
     return create_escalation_if_missing(
         booking_id=booking_id,
