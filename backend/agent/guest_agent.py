@@ -39,6 +39,7 @@ async def run_guest_agent(
     show_tools: bool = False,
     db_path: str | Path | None = None,
     open_cases: list[dict] | None = None,
+    recent_cases: list[dict] | None = None,
     recent_messages: list[dict] | None = None,
 ):
     """
@@ -178,6 +179,28 @@ async def run_guest_agent(
             open_cases_text = (
                 "\n".join(case_context_lines)
                 if case_context_lines
+                else "None"
+            )
+            # -------------------------------------------------
+            # RECENT CASE HISTORY
+            # -------------------------------------------------
+
+            recent_case_lines = []
+
+            for case in recent_cases or []:
+                recent_case_lines.append(
+                    (
+                        f"- Case ID: {case['case_id']}\n"
+                        f"  Category: {case['category']}\n"
+                        f"  Status: {case['status']}\n"
+                        f"  Summary: "
+                        f"{case.get('summary') or 'No summary'}"
+                    )
+                )
+
+            recent_cases_text = (
+                "\n".join(recent_case_lines)
+                if recent_case_lines
                 else "None"
             )
 

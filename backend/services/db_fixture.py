@@ -138,19 +138,19 @@ def reset_eval_database() -> Path:
         )
         connection.execute(
             """
-            DELETE FROM cases
-            WHERE booking_id = ?
-            """,
-            (DEMO_BOOKING_ID,),
-        )
-        connection.execute(
-            """
             DELETE FROM case_events
             WHERE case_id IN (
                 SELECT case_id
                 FROM cases
                 WHERE booking_id = ?
             )
+            """,
+            (DEMO_BOOKING_ID,),
+        )
+        connection.execute(
+            """
+            DELETE FROM cases
+            WHERE booking_id = ?
             """,
             (DEMO_BOOKING_ID,),
         )

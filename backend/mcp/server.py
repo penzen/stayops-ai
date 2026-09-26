@@ -25,6 +25,7 @@ from backend.services.cases import (
 
 from backend.services.compensation import (
     ensure_compensation_request as ensure_compensation_request_service,
+    ensure_refund_workflow as ensure_refund_workflow_service,
     get_compensation_request_by_case,
     get_compensation_evidence,
     build_compensation_assessment,
@@ -350,6 +351,41 @@ def lookup_operational_playbook(
 # COMPENSATION
 # ---------------------------------------------------------
 
+@mcp.tool()
+def ensure_refund_workflow(
+    booking_id: str,
+    property_id: str,
+    reason: str,
+    requested_outcome: str | None = None,
+    related_case_id: str | None = None,
+    explicit_new_request: bool = False,
+) -> dict:
+    """
+    Create, reuse, or recover the complete refund workflow.
+
+    This tool deterministically handles:
+    - active refund Cases,
+    - new refund Cases,
+    - compensation requests,
+    - human financial escalations,
+    - waiting_human workflow state,
+    - historical resolved refund follow-ups.
+
+    By default, a previous resolved refund is treated as historical
+    rather than creating a duplicate financial workflow.
+
+    Set explicit_new_request=True only when the guest is clearly
+    making a distinct new financial request.
+    """
+
+    return ensure_refund_workflow_service(
+        booking_id=booking_id,
+        property_id=property_id,
+        reason=reason,
+        requested_outcome=requested_outcome,
+        related_case_id=related_case_id,
+        explicit_new_request=explicit_new_request,
+    )
 
 @mcp.tool()
 def ensure_compensation_review(
@@ -526,12 +562,82 @@ def ensure_human_escalation(
     """
     Create a human escalation if an open escalation for the same
     booking, property, and category does not already exist.
+
+    Refund escalations require an existing refund Case and
+    compensation request so the financial workflow cannot be
+    bypassed.
     """
+
+    normalized_category = (
+        category.strip().lower()
+    )
+
+    # -----------------------------------------------------
+    # FINANCIAL WORKFLOW GUARD
+    # -----------------------------------------------------
+
+    if normalized_category == "refund":
+
+        if case_id is None:
+            return {
+                "created": False,
+                "reason":
+                    "refund_case_required",
+                "required_action":
+                    (
+                        "Create or reuse a refund Case first "
+                        "with ensure_operational_case, then "
+                        "create the compensation review with "
+                        "ensure_compensation_review."
+                    ),
+            }
+
+        case = get_case(
+            case_id
+        )
+
+        if case is None:
+            return {
+                "created": False,
+                "reason":
+                    "refund_case_not_found",
+            }
+
+        if case["category"] != "refund":
+            return {
+                "created": False,
+                "reason":
+                    "refund_case_required",
+                "required_action":
+                    (
+                        "Refund escalations must belong "
+                        "to a refund Case."
+                    ),
+            }
+
+        compensation_request = (
+            get_compensation_request_by_case(
+                case_id
+            )
+        )
+
+        if compensation_request is None:
+            return {
+                "created": False,
+                "reason":
+                    "compensation_review_required",
+                "required_action":
+                    (
+                        "Create or reuse the compensation "
+                        "review before escalating the "
+                        "financial request."
+                    ),
+            }
 
     return create_escalation_if_missing(
         booking_id=booking_id,
         property_id=property_id,
-        category=category,
+        category=normalized_category,
         reason=reason,
         priority=priority,
         incident_id=incident_id,

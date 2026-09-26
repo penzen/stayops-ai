@@ -369,3 +369,199 @@ def complete_task(task_id: str):
 
     finally:
         connection.close()
+
+def assign_task(
+    task_id: str,
+    operator_id: str,
+    worker_id: str,
+):
+    """
+    Assign an open Case-linked task to a maintenance worker.
+
+    The Case must already be claimed by the operator making
+    the assignment.
+    """
+
+    operator_id = operator_id.strip()
+    worker_id = worker_id.strip()
+
+    if not operator_id:
+        raise ValueError(
+            "Operator ID is required."
+        )
+
+    if not worker_id:
+        raise ValueError(
+            "Worker ID is required."
+        )
+
+    connection = get_connection()
+
+    try:
+        # -----------------------------------------------------
+        # TASK
+        # -----------------------------------------------------
+
+        task_row = connection.execute(
+            """
+            SELECT *
+            FROM tasks
+            WHERE task_id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        if task_row is None:
+            raise ValueError(
+                f"Task does not exist: {task_id}"
+            )
+
+        task = dict(task_row)
+
+        if task["task_status"] != "open":
+            raise ValueError(
+                "Only open tasks can be assigned."
+            )
+
+        if task["case_id"] is None:
+            raise ValueError(
+                "Task must belong to a Case before assignment."
+            )
+
+        # -----------------------------------------------------
+        # CASE OWNERSHIP
+        # -----------------------------------------------------
+
+        case_row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (task["case_id"],),
+        ).fetchone()
+
+        if case_row is None:
+            raise ValueError(
+                f"Case does not exist: {task['case_id']}"
+            )
+
+        case = dict(case_row)
+
+        if case["status"] != "waiting_human":
+            raise ValueError(
+                "Case must be waiting_human "
+                "before task assignment."
+            )
+
+        if case["assigned_to"] is None:
+            raise ValueError(
+                "Case must be claimed before "
+                "assigning operational work."
+            )
+
+        if case["assigned_to"] != operator_id:
+            raise ValueError(
+                "Only the assigned Case operator "
+                "can assign this task."
+            )
+
+        # -----------------------------------------------------
+        # WORKER
+        # -----------------------------------------------------
+
+        worker_row = connection.execute(
+            """
+            SELECT *
+            FROM teams
+            WHERE team_id = ?
+            """,
+            (worker_id,),
+        ).fetchone()
+
+        if worker_row is None:
+            raise ValueError(
+                f"Worker does not exist: {worker_id}"
+            )
+
+        worker = dict(worker_row)
+
+        if (
+            worker["team_group"]
+            != "technical_maintenance"
+        ):
+            raise ValueError(
+                "Task worker must belong to "
+                "technical_maintenance."
+            )
+
+        # -----------------------------------------------------
+        # IDEMPOTENT REASSIGNMENT
+        # -----------------------------------------------------
+
+        if task["assigned_to"] == worker_id:
+            return {
+                "assigned": False,
+                "reason": "already_assigned_to_worker",
+                "task": task,
+                "worker": worker,
+            }
+
+        previous_assignee = task["assigned_to"]
+
+        # -----------------------------------------------------
+        # ASSIGN
+        # -----------------------------------------------------
+
+        connection.execute(
+            """
+            UPDATE tasks
+            SET assigned_to = ?
+            WHERE task_id = ?
+            """,
+            (
+                worker_id,
+                task_id,
+            ),
+        )
+
+        record_case_event(
+            case_id=task["case_id"],
+            event_type="task_assigned",
+            actor_type="human",
+            actor_id=operator_id,
+            summary=(
+                f"Operational task assigned to "
+                f"{worker['first_name']} "
+                f"{worker['last_name']}."
+            ),
+            metadata={
+                "task_id": task_id,
+                "worker_id": worker_id,
+                "previous_assignee":
+                    previous_assignee,
+                "category": task["category"],
+            },
+            connection=connection,
+        )
+
+        connection.commit()
+
+        updated_row = connection.execute(
+            """
+            SELECT *
+            FROM tasks
+            WHERE task_id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        return {
+            "assigned": True,
+            "reason": "task_assigned",
+            "task": dict(updated_row),
+            "worker": worker,
+        }
+
+    finally:
+        connection.close()

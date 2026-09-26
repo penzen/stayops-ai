@@ -21,7 +21,19 @@ PLAYBOOKS: dict[str, dict[str, Any]] = {
         "operational_actions": {
             "heating_unavailable": [
                 "Create or reuse a heating operations task.",
-                "Escalate when the issue cannot be safely restored through normal guest-accessible controls.",
+                (
+                    "When the guest reports that heating has stopped "
+                    "working or is completely unavailable, create or reuse "
+                    "a high-priority human escalation immediately."
+                ),
+                (
+                    "Do not delay the human escalation while waiting for "
+                    "safe thermostat-level diagnostic answers."
+                ),
+                (
+                    "Diagnostic questions may be asked in parallel with "
+                    "the human handoff."
+                ),
             ],
         },
         "high_priority_conditions": [

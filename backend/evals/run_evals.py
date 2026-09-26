@@ -10,6 +10,7 @@ from backend.services.db_fixture import reset_eval_database
 
 from backend.services.cases import (
     get_open_cases_for_booking,
+    get_recent_cases_for_booking,
     resolve_case_if_ready,
 )
 
@@ -316,6 +317,10 @@ def evaluate_scenario(
 
     if scenario.get("expected_escalation"):
 
+        expected_category = scenario.get(
+            "expected_category"
+        )
+
         escalation_calls = [
             call
             for call in tool_calls
@@ -323,16 +328,27 @@ def evaluate_scenario(
             == "ensure_human_escalation"
         ]
 
-        if not escalation_calls:
+        refund_workflow_calls = [
+            call
+            for call in tool_calls
+            if call["tool_name"]
+            == "ensure_refund_workflow"
+        ]
+
+        # Refund escalation is now created internally by the
+        # deterministic refund workflow.
+        if (
+            expected_category == "refund"
+            and refund_workflow_calls
+        ):
+            pass
+
+        elif not escalation_calls:
             failures.append(
                 "Expected human escalation was not attempted."
             )
 
         else:
-            expected_category = scenario.get(
-                "expected_category"
-            )
-
             matching_category = False
 
             for call in escalation_calls:
@@ -424,6 +440,10 @@ async def run_eval_turn(
         open_cases = get_open_cases_for_booking(
             booking_id
         )
+        recent_cases = get_recent_cases_for_booking(
+            booking_id,
+            limit=5,
+        )
 
         recent_messages = get_booking_messages(
             booking_id
@@ -444,6 +464,7 @@ async def run_eval_turn(
             show_tools=False,
             db_path=db_path,
             open_cases=open_cases,
+            recent_cases=recent_cases,
             recent_messages=recent_messages,
         )
 
@@ -1297,6 +1318,21 @@ async def run_historical_refund_followup_eval():
         == "lookup_compensation_review_for_case"
         for call in tool_calls
     )
+    refund_workflow_used = any(
+        call["tool_name"]
+        == "ensure_refund_workflow"
+        for call in tool_calls
+    )
+
+    historical_path_used = (
+        historical_lookup_used
+        or refund_workflow_used
+    )
+
+    compensation_path_used = (
+        compensation_lookup_used
+        or refund_workflow_used
+    )
 
     # ---------------------------------------------------------
     # VERIFY NOTHING NEW WAS CREATED
@@ -1391,8 +1427,8 @@ async def run_historical_refund_followup_eval():
     )
 
     passed = (
-        historical_lookup_used
-        and compensation_lookup_used
+        historical_path_used
+        and compensation_path_used
         and exactly_one_refund_case
         and exactly_one_request
         and exactly_one_decision
@@ -1405,10 +1441,14 @@ async def run_historical_refund_followup_eval():
         "Historical Case lookup used: "
         f"{historical_lookup_used}"
     )
+    print(
+        "Historical refund path used: "
+        f"{historical_path_used}"
+    )
 
     print(
-        "Compensation review retrieved: "
-        f"{compensation_lookup_used}"
+        "Compensation review path used: "
+        f"{compensation_path_used}"
     )
 
     print(

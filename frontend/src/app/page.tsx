@@ -12,6 +12,15 @@ type ChatMessage = {
   text: string;
 };
 
+type StoredMessage = {
+  message_id: string;
+  booking_id: string;
+  guest_id: string;
+  sender_type: string;
+  message_text: string;
+  channel: string;
+  created_at: string;
+};
 
 type Task = {
   task_id: string;
@@ -243,6 +252,54 @@ export default function Home() {
   // LOAD TASKS + ESCALATIONS
   // ---------------------------------------------------------
 
+const loadConversation =
+  useCallback(
+    async (
+      bookingId: string
+    ) => {
+      try {
+        const response =
+          await fetch(
+            `${API_URL}/reservations/${bookingId}/messages`,
+            {
+              cache: "no-store",
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `Messages request failed: ${response.status}`
+          );
+        }
+
+        const data: StoredMessage[] =
+          await response.json();
+
+        setMessages(
+          data.map((item) => ({
+            sender:
+              item.sender_type ===
+              "guest"
+                ? "guest"
+                : "agent",
+
+            text:
+              item.message_text,
+          }))
+        );
+
+      } catch (error) {
+        console.error(
+          "Unable to load conversation:",
+          error
+        );
+
+        setMessages([]);
+      }
+    },
+    []
+  );
+
   const refreshOperations =
     useCallback(
       async (
@@ -328,31 +385,48 @@ export default function Home() {
 
 
   // ---------------------------------------------------------
-  // INITIAL LOAD
-  // ---------------------------------------------------------
+// INITIAL LOAD
+// ---------------------------------------------------------
 
-  useEffect(() => {
+useEffect(() => {
+  const timer = window.setTimeout(() => {
     void loadDemoStays();
-  }, [loadDemoStays]);
+  }, 0);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, [loadDemoStays]);
 
 
-  // ---------------------------------------------------------
-  // REFRESH WHEN GUEST CHANGES
-  // ---------------------------------------------------------
+// ---------------------------------------------------------
+// REFRESH WHEN GUEST CHANGES
+// ---------------------------------------------------------
 
-  useEffect(() => {
-    if (!selectedStay) {
-      return;
-    }
+useEffect(() => {
+  if (!selectedStay) {
+    return;
+  }
+
+  const timer = window.setTimeout(() => {
+    void loadConversation(
+      selectedStay.booking_id
+    );
 
     void refreshOperations(
       selectedStay.booking_id,
       selectedStay.property_id
     );
-  }, [
-    selectedStay,
-    refreshOperations,
-  ]);
+  }, 0);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, [
+  selectedStay,
+  loadConversation,
+  refreshOperations,
+]);
 
 
   // ---------------------------------------------------------
@@ -541,7 +615,7 @@ export default function Home() {
   // QUICK DEMO PROMPTS
   // ---------------------------------------------------------
 
-  function usePrompt(
+  function fillPrompt(
     prompt: string
   ) {
     setMessage(prompt);
@@ -587,8 +661,17 @@ export default function Home() {
 
           </div>
 
+          
+
 
           <div className="flex items-center gap-3">
+
+            <a
+              href="/operations"
+              className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-300 transition hover:border-violet-400/50 hover:bg-violet-500/20 hover:text-violet-200"
+            >
+              Operations
+            </a>
 
             <button
               onClick={() =>
@@ -858,7 +941,7 @@ export default function Home() {
 
                       <button
                         onClick={() =>
-                          usePrompt(
+                          fillPrompt(
                             "There is water leaking underneath the kitchen sink and it is getting worse."
                           )
                         }
@@ -870,7 +953,7 @@ export default function Home() {
 
                       <button
                         onClick={() =>
-                          usePrompt(
+                          fillPrompt(
                             "The heating has stopped working and the apartment is getting cold."
                           )
                         }
@@ -882,8 +965,8 @@ export default function Home() {
 
                       <button
                         onClick={() =>
-                          usePrompt(
-                            "The heating has been broken all evening. I want a full refund."
+                          fillPrompt(
+                             "The heating has been broken all evening. I want a full refund."
                           )
                         }
                         className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-200"

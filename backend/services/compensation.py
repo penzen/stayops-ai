@@ -3,6 +3,19 @@ import uuid
 from backend.services.db import get_connection
 from backend.services.audit import record_case_event
 
+from backend.domain.enums import CaseStatus
+
+from backend.services.cases import (
+    ensure_case,
+    get_open_cases_for_booking,
+    get_recent_cases_for_booking,
+    transition_case_status,
+)
+
+from backend.services.escalations import (
+    create_escalation_if_missing,
+)
+
 def get_compensation_request_by_case(
     case_id: str,
 ):
@@ -645,6 +658,199 @@ def get_compensation_evidence(
 
     finally:
         connection.close()
+
+def ensure_refund_workflow(
+    booking_id: str,
+    property_id: str,
+    reason: str,
+    requested_outcome: str | None = None,
+    related_case_id: str | None = None,
+    explicit_new_request: bool = False,
+):
+    """
+    Deterministically create or reuse the complete refund workflow.
+
+    Safe default:
+    if an earlier resolved refund Case exists, treat the request
+    as historical unless the caller explicitly identifies it as
+    a new financial request.
+    """
+
+    # ---------------------------------------------------------
+    # ACTIVE REFUND CASE
+    # ---------------------------------------------------------
+
+    open_cases = get_open_cases_for_booking(
+        booking_id
+    )
+
+    active_refund_case = next(
+        (
+            case
+            for case in open_cases
+            if (
+                case["category"] == "refund"
+                and case["property_id"]
+                == property_id
+            )
+        ),
+        None,
+    )
+
+    case_created = False
+
+    if active_refund_case is not None:
+        refund_case = active_refund_case
+
+    else:
+        # -----------------------------------------------------
+        # HISTORICAL REFUND SAFETY GATE
+        # -----------------------------------------------------
+
+        recent_refunds = (
+            get_recent_cases_for_booking(
+                booking_id=booking_id,
+                category="refund",
+                limit=1,
+            )
+        )
+
+        historical_refund = (
+            recent_refunds[0]
+            if recent_refunds
+            else None
+        )
+
+        if (
+            historical_refund is not None
+            and historical_refund["status"]
+            == CaseStatus.RESOLVED
+            and not explicit_new_request
+        ):
+            request = (
+                get_compensation_request_by_case(
+                    historical_refund[
+                        "case_id"
+                    ]
+                )
+            )
+
+            evidence = None
+
+            if request is not None:
+                evidence = (
+                    get_compensation_evidence(
+                        request[
+                            "compensation_request_id"
+                        ]
+                    )
+                )
+
+            return {
+                "created": False,
+                "historical": True,
+                "reason":
+                    "historical_refund_found",
+                "case":
+                    historical_refund,
+                "compensation_request":
+                    request,
+                "evidence":
+                    evidence,
+            }
+
+        # -----------------------------------------------------
+        # CREATE NEW REFUND CASE
+        # -----------------------------------------------------
+
+        case_result = ensure_case(
+            booking_id=booking_id,
+            property_id=property_id,
+            category="refund",
+            summary=reason,
+        )
+
+        refund_case = (
+            case_result["case"]
+        )
+
+        case_created = (
+            case_result["created"]
+        )
+
+    # ---------------------------------------------------------
+    # COMPENSATION REQUEST
+    # ---------------------------------------------------------
+
+    request_result = (
+        ensure_compensation_request(
+            case_id=refund_case["case_id"],
+            reason=reason,
+            requested_outcome=
+                requested_outcome,
+            related_case_id=
+                related_case_id,
+        )
+    )
+
+    compensation_request = (
+        request_result[
+            "compensation_request"
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # HUMAN FINANCIAL ESCALATION
+    # ---------------------------------------------------------
+
+    escalation_result = (
+        create_escalation_if_missing(
+            booking_id=booking_id,
+            property_id=property_id,
+            category="refund",
+            reason=(
+                "Financial review required: "
+                f"{reason}"
+            ),
+            priority="high",
+            case_id=
+                refund_case["case_id"],
+        )
+    )
+
+    # ---------------------------------------------------------
+    # WORKFLOW STATE
+    # ---------------------------------------------------------
+
+    status_result = (
+        transition_case_status(
+            case_id=
+                refund_case["case_id"],
+            new_status=
+                CaseStatus.WAITING_HUMAN.value,
+        )
+    )
+
+    return {
+        "created": True,
+        "historical": False,
+        "reason":
+            "refund_workflow_ready",
+        "case_created":
+            case_created,
+        "case":
+            status_result["case"],
+        "compensation_request_created":
+            request_result["created"],
+        "compensation_request":
+            compensation_request,
+        "escalation_created":
+            escalation_result["created"],
+        "escalation":
+            escalation_result[
+                "escalation"
+            ],
+    }
 
 
 def build_compensation_assessment(

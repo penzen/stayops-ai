@@ -44,6 +44,10 @@ class AgentChatRequest(BaseModel):
 class CaseOperatorAction(BaseModel):
     operator_id: str
 
+class TaskAssignmentAction(BaseModel):
+    operator_id: str
+    worker_id: str
+
 
 class AgentChatResponse(BaseModel):
     guest_id: str

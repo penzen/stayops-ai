@@ -17,6 +17,7 @@ from backend.api.schemas import (
     AgentChatResponse,
     CompensationDecisionCreate,
     CaseOperatorAction,
+    TaskAssignmentAction,
 )
 from backend.services.compensation import (
     get_compensation_evidence,
@@ -29,6 +30,8 @@ from backend.services.cases import (
     get_human_operations_queue,
     claim_case,
     return_case_to_agent,
+    get_recent_cases_for_booking,
+
 )
 
 from backend.agent.guest_agent import run_guest_agent
@@ -60,6 +63,7 @@ from backend.services.tasks import (
     create_task,
     get_open_tasks,
     complete_task,
+    assign_task,
 )
 
 from backend.services.escalations import (
@@ -136,10 +140,6 @@ def read_reservation(booking_id: str):
 
     return reservation
 
-
-@app.get("/reservations/{booking_id}/messages")
-def read_booking_messages(booking_id: str):
-    return get_booking_messages(booking_id)
 
 
 # ---------------------------------------------------------
@@ -286,6 +286,10 @@ def create_message(payload: MessageCreate):
         channel=payload.channel,
     )
 
+@app.get("/reservations/{booking_id}/messages")
+def read_booking_messages(
+    booking_id: str,):
+    return get_booking_messages(booking_id)
 
 # ---------------------------------------------------------
 # INCIDENTS
@@ -330,6 +334,36 @@ def create_new_task(payload: TaskCreate):
         assigned_to=payload.assigned_to,
         parent_task_id=payload.parent_task_id,
     )
+
+@app.patch("/tasks/{task_id}/assign")
+def assign_existing_task(
+    task_id: str,
+    payload: TaskAssignmentAction,
+):
+    try:
+        return assign_task(
+            task_id=task_id,
+            operator_id=payload.operator_id,
+            worker_id=payload.worker_id,
+        )
+
+    except ValueError as exc:
+        detail = str(exc)
+
+        status_code = (
+            404
+            if (
+                detail.startswith("Task does not exist:")
+                or detail.startswith("Worker does not exist:")
+                or detail.startswith("Case does not exist:")
+            )
+            else 409
+        )
+
+        raise HTTPException(
+            status_code=status_code,
+            detail=detail,
+        )
 
 @app.patch("/tasks/{task_id}/complete")
 def complete_existing_task(task_id: str):
@@ -470,6 +504,11 @@ async def agent_chat(payload: AgentChatRequest):
             payload.booking_id
         )
 
+        recent_cases = get_recent_cases_for_booking(
+            payload.booking_id,
+            limit=5,
+        )
+
         recent_messages = get_booking_messages(
             payload.booking_id
         )[-6:]
@@ -496,6 +535,7 @@ async def agent_chat(payload: AgentChatRequest):
             scenario_name="api_guest_chat",
             show_tools=False,
             open_cases=open_cases,
+            recent_cases=recent_cases,
             recent_messages=recent_messages,
         )
 
@@ -529,6 +569,7 @@ async def agent_chat(payload: AgentChatRequest):
             "assess_compensation_request":"Compensation assessment prepared",
             "lookup_compensation_review_for_case":"Compensation review retrieved",
             "lookup_recent_cases_for_booking":"Operational case history retrieved",
+            "ensure_refund_workflow": "Refund workflow created or reused",
         }
 
         activities = []

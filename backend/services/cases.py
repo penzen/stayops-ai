@@ -551,6 +551,44 @@ def get_human_operations_queue():
                 dict(row)
                 for row in escalation_rows
             ]
+            # ---------------------------------------------------------
+            # COMPENSATION
+            # ---------------------------------------------------------
+
+            compensation_request = None
+            compensation_decision = None
+
+            compensation_request_row = connection.execute(
+                """
+                SELECT *
+                FROM compensation_requests
+                WHERE case_id = ?
+                """,
+                (case["case_id"],),
+            ).fetchone()
+
+            if compensation_request_row is not None:
+                compensation_request = dict(
+                    compensation_request_row
+                )
+
+                compensation_decision_row = connection.execute(
+                    """
+                    SELECT *
+                    FROM compensation_decisions
+                    WHERE compensation_request_id = ?
+                    """,
+                    (
+                        compensation_request[
+                            "compensation_request_id"
+                        ],
+                    ),
+                ).fetchone()
+
+                if compensation_decision_row is not None:
+                    compensation_decision = dict(
+                        compensation_decision_row
+                    )
 
             operator = None
 
@@ -604,6 +642,8 @@ def get_human_operations_queue():
                     "escalations": escalations,
                     "operator": operator,
                     "handoff": handoff,
+                    "compensation_request":compensation_request,
+                    "compensation_decision":compensation_decision,
                 }
             )
 
