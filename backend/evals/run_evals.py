@@ -12,6 +12,7 @@ from backend.services.cases import (
     get_open_cases_for_booking,
     get_recent_cases_for_booking,
     resolve_case_if_ready,
+    claim_case,
 )
 
 from backend.services.messages import (
@@ -967,6 +968,11 @@ async def run_financial_decision_eval(
         # HUMAN MAKES THE FINANCIAL DECISION
         # -----------------------------------------------------
 
+        claim_case(
+            case_id=case_id,
+            operator_id="GRO_254",
+        )
+
         if decision == "approved":
             decision_result = (
                 record_compensation_decision(
@@ -983,6 +989,11 @@ async def run_financial_decision_eval(
             )
 
         else:
+
+            claim_case(
+                case_id=case_id,
+                operator_id="GRO_254",
+            )
             decision_result = (
                 record_compensation_decision(
                     compensation_request_id=
@@ -998,7 +1009,8 @@ async def run_financial_decision_eval(
 
         # Human blocking work is now complete.
         resolve_escalation(
-            escalation_id
+            escalation_id,
+            operator_id="GRO_254",
         )
 
         resolution = resolve_case_if_ready(
@@ -1243,6 +1255,11 @@ async def run_historical_refund_followup_eval():
         # HUMAN APPROVES €150
         # -----------------------------------------------------
 
+        claim_case(
+            case_id=case_id,
+            operator_id="GRO_254",
+        )
+
         record_compensation_decision(
             compensation_request_id=
                 compensation_request_id,
@@ -1256,7 +1273,8 @@ async def run_historical_refund_followup_eval():
         )
 
         resolve_escalation(
-            escalation_id
+            escalation_id,
+            operator_id="GRO_254",
         )
 
         resolution = resolve_case_if_ready(

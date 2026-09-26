@@ -380,7 +380,7 @@ def create_escalation_if_missing(
         "escalation": escalation,
     }
 
-def resolve_escalation(escalation_id: str):
+def resolve_escalation(escalation_id: str, operator_id: str | None = None,):
     """
     Mark a human escalation as resolved.
 
@@ -404,6 +404,62 @@ def resolve_escalation(escalation_id: str):
             return None
 
         escalation = dict(row)
+        # -----------------------------------------------------
+        # HUMAN AUTHORIZATION
+        # -----------------------------------------------------
+
+        authorized_operator_id = None
+
+        if operator_id is not None:
+            operator_id = operator_id.strip()
+
+            if not operator_id:
+                raise ValueError(
+                    "Operator ID is required."
+                )
+
+            if escalation["case_id"] is None:
+                raise ValueError(
+                    "Escalation must belong to a Case "
+                    "before human resolution."
+                )
+
+            case_row = connection.execute(
+                """
+                SELECT *
+                FROM cases
+                WHERE case_id = ?
+                """,
+                (escalation["case_id"],),
+            ).fetchone()
+
+            if case_row is None:
+                raise ValueError(
+                    "Case does not exist: "
+                    f"{escalation['case_id']}"
+                )
+
+            case = dict(case_row)
+
+            if case["status"] != CaseStatus.WAITING_HUMAN:
+                raise ValueError(
+                    "Case must be waiting_human "
+                    "before human escalation resolution."
+                )
+
+            if case["assigned_to"] is None:
+                raise ValueError(
+                    "Case must be claimed before "
+                    "resolving human escalation work."
+                )
+
+            if case["assigned_to"] != operator_id:
+                raise ValueError(
+                    "Only the assigned Case operator "
+                    "can resolve this escalation."
+                )
+
+            authorized_operator_id = operator_id
 
         if escalation["status"] == CaseStatus.RESOLVED:
             return escalation
@@ -422,35 +478,17 @@ def resolve_escalation(escalation_id: str):
             ),
         )
         if escalation["case_id"] is not None:
-            case_row = connection.execute(
-                """
-                SELECT assigned_to
-                FROM cases
-                WHERE case_id = ?
-                """,
-                (escalation["case_id"],),
-            ).fetchone()
-
-            operator_id = (
-                case_row["assigned_to"]
-                if (
-                    case_row is not None
-                    and case_row["assigned_to"] is not None
-                )
-                else None
-            )
-
             record_case_event(
                 case_id=escalation["case_id"],
                 event_type="escalation_resolved",
                 actor_type=(
                     "human"
-                    if operator_id is not None
+                    if authorized_operator_id is not None
                     else "system"
                 ),
                 actor_id=(
-                    operator_id
-                    if operator_id is not None
+                    authorized_operator_id
+                    if authorized_operator_id is not None
                     else "escalation_service"
                 ),
                 summary="Human escalation resolved.",

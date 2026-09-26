@@ -4,6 +4,7 @@ from backend.services.compensation import (
 )
 from backend.services.cases import (
     resolve_case_if_ready,
+    claim_case,
 )
 from backend.services.escalations import (
     resolve_escalation,
@@ -113,6 +114,10 @@ def test_refund_workflow_returns_resolved_history_without_duplicates(
         ]
     )
 
+    claim_case(
+        case_id=case_id,
+        operator_id="GRO_254",)
+
     record_compensation_decision(
         compensation_request_id=compensation_request_id,
         decision="approved",
@@ -123,7 +128,9 @@ def test_refund_workflow_returns_resolved_history_without_duplicates(
     )
 
     resolve_escalation(
-        escalation_id
+        escalation_id,
+        operator_id="GRO_254",
+        
     )
 
     resolution = resolve_case_if_ready(
@@ -210,6 +217,11 @@ def test_refund_workflow_creates_new_request_after_resolved_history(
         first["escalation"]["escalation_id"]
     )
 
+
+    claim_case(
+    case_id=first_case_id,
+    operator_id="GRO_254")
+
     record_compensation_decision(
         compensation_request_id=first_request_id,
         decision="approved",
@@ -220,7 +232,8 @@ def test_refund_workflow_creates_new_request_after_resolved_history(
     )
 
     resolve_escalation(
-        first_escalation_id
+        first_escalation_id,
+        operator_id="GRO_254",
     )
 
     resolution = resolve_case_if_ready(

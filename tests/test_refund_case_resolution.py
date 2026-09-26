@@ -1,8 +1,3 @@
-from backend.services.cases import (
-    ensure_case,
-    resolve_case_if_ready,
-)
-
 from backend.services.escalations import (
     create_escalation_if_missing,
     resolve_escalation,
@@ -11,6 +6,13 @@ from backend.services.escalations import (
 from backend.services.compensation import (
     ensure_compensation_request,
     record_compensation_decision,
+)
+
+from backend.services.cases import (
+    ensure_case,
+    transition_case_status,
+    claim_case,
+    resolve_case_if_ready,
 )
 
 
@@ -49,7 +51,7 @@ def test_refund_case_cannot_resolve_without_compensation_request(
     case, escalation = create_refund_case()
 
     resolve_escalation(
-        escalation["escalation_id"]
+        escalation["escalation_id"],
     )
 
     result = resolve_case_if_ready(
@@ -75,7 +77,7 @@ def test_refund_case_cannot_resolve_without_financial_decision(
     )
 
     resolve_escalation(
-        escalation["escalation_id"]
+        escalation["escalation_id"],
     )
 
     result = resolve_case_if_ready(
@@ -94,6 +96,16 @@ def test_refund_case_resolves_after_human_financial_decision(
 ):
     case, escalation = create_refund_case()
 
+    transition_case_status(
+    case_id=case["case_id"],
+    new_status="waiting_human",
+)
+
+    claim_case(
+        case_id=case["case_id"],
+        operator_id="GRO_254",
+    )
+
     request_result = ensure_compensation_request(
         case_id=case["case_id"],
         reason="Heating disruption.",
@@ -109,14 +121,15 @@ def test_refund_case_resolves_after_human_financial_decision(
             request["compensation_request_id"]
         ),
         decision="approved",
-        decided_by="ops_manager_001",
+        decided_by="GRO_254",
         amount=100.00,
         currency="EUR",
         reason="Approved after review.",
     )
 
     resolve_escalation(
-        escalation["escalation_id"]
+        escalation["escalation_id"],
+        operator_id="GRO_254",
     )
 
     result = resolve_case_if_ready(

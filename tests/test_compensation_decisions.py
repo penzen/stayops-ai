@@ -6,7 +6,13 @@ from backend.services.compensation import (
     record_compensation_decision,
 )
 
+from backend.services.cases import (
+    ensure_case,
+    transition_case_status,
+    claim_case,
+)
 
+OPERATOR_ID = "GRO_254"
 BOOKING_ID = "book_demo_current_001"
 PROPERTY_ID = "prop_15"
 
@@ -25,6 +31,18 @@ def create_pending_request():
         requested_outcome="Refund requested.",
     )
 
+    case_id = refund_case["case"]["case_id"]
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
+    )
+
     return request_result["compensation_request"]
 
 
@@ -38,7 +56,7 @@ def test_human_can_approve_compensation_request(
             request["compensation_request_id"]
         ),
         decision="approved",
-        decided_by="ops_manager_001",
+        decided_by=OPERATOR_ID,
         amount=150.00,
         currency="EUR",
         reason="Heating unavailable for extended period.",
@@ -51,7 +69,7 @@ def test_human_can_approve_compensation_request(
     assert decision["decision"] == "approved"
     assert decision["amount"] == 150.00
     assert decision["currency"] == "EUR"
-    assert decision["decided_by"] == "ops_manager_001"
+    assert decision["decided_by"] == OPERATOR_ID
 
 
 def test_human_can_deny_compensation_request(
@@ -64,7 +82,7 @@ def test_human_can_deny_compensation_request(
             request["compensation_request_id"]
         ),
         decision="denied",
-        decided_by="ops_manager_001",
+        decided_by=OPERATOR_ID,
         reason="Request does not meet compensation policy.",
     )
 
@@ -90,7 +108,7 @@ def test_approved_decision_requires_amount(
                 request["compensation_request_id"]
             ),
             decision="approved",
-            decided_by="ops_manager_001",
+            decided_by=OPERATOR_ID,
             reason="Approved by operations.",
         )
 
@@ -109,7 +127,7 @@ def test_denied_decision_cannot_have_amount(
                 request["compensation_request_id"]
             ),
             decision="denied",
-            decided_by="ops_manager_001",
+            decided_by=OPERATOR_ID,
             amount=100.00,
             currency="EUR",
             reason="Denied.",
@@ -128,7 +146,7 @@ def test_compensation_decision_is_final(
     first = record_compensation_decision(
         compensation_request_id=request_id,
         decision="approved",
-        decided_by="ops_manager_001",
+        decided_by=OPERATOR_ID,
         amount=100.00,
         currency="EUR",
         reason="Approved.",
@@ -137,7 +155,7 @@ def test_compensation_decision_is_final(
     second = record_compensation_decision(
         compensation_request_id=request_id,
         decision="approved",
-        decided_by="ops_manager_001",
+        decided_by=OPERATOR_ID,
         amount=100.00,
         currency="EUR",
         reason="Approved.",
@@ -167,6 +185,72 @@ def test_invalid_compensation_decision_is_rejected(
                 request["compensation_request_id"]
             ),
             decision="maybe",
-            decided_by="ops_manager_001",
+            decided_by=OPERATOR_ID,
             reason="Invalid decision.",
+        )
+
+
+def test_unclaimed_refund_case_cannot_receive_financial_decision(
+    test_db,
+):
+    refund_case = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="refund",
+        summary="Guest requested compensation.",
+    )
+
+    case_id = refund_case["case"]["case_id"]
+
+    request_result = ensure_compensation_request(
+        case_id=case_id,
+        reason="Heating disruption.",
+        requested_outcome="Refund requested.",
+    )
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    request_id = (
+        request_result[
+            "compensation_request"
+        ]["compensation_request_id"]
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="must be claimed",
+    ):
+        record_compensation_decision(
+            compensation_request_id=request_id,
+            decision="approved",
+            decided_by=OPERATOR_ID,
+            reason="Attempted unclaimed approval.",
+            amount=100.0,
+            currency="EUR",
+        )
+
+
+def test_other_operator_cannot_record_financial_decision(
+    test_db,
+):
+    request = create_pending_request()
+
+    with pytest.raises(
+        ValueError,
+        match="assigned Case operator",
+    ):
+        record_compensation_decision(
+            compensation_request_id=(
+                request[
+                    "compensation_request_id"
+                ]
+            ),
+            decision="approved",
+            decided_by="GRO_612",
+            reason="Unauthorized approval attempt.",
+            amount=100.0,
+            currency="EUR",
         )

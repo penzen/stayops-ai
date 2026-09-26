@@ -5,8 +5,13 @@ from backend.services.cases import ensure_case
 from backend.services.compensation import (
     ensure_compensation_request,
 )
+from backend.services.cases import (
+    ensure_case,
+    transition_case_status,
+    claim_case,
+)
 
-
+OPERATOR_ID = "GRO_254"
 client = TestClient(app)
 
 BOOKING_ID = "book_demo_current_001"
@@ -25,6 +30,18 @@ def create_compensation_request():
         case_id=refund_case["case"]["case_id"],
         reason="Heating disruption.",
         requested_outcome="Refund requested.",
+    )
+
+    case_id = refund_case["case"]["case_id"]
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
     )
 
     return result["compensation_request"]
@@ -70,7 +87,7 @@ def test_human_can_record_compensation_decision_via_api(
         f"/compensation-requests/{request_id}/decision",
         json={
             "decision": "approved",
-            "decided_by": "ops_manager_001",
+            "decided_by": OPERATOR_ID,
             "amount": 125.00,
             "currency": "EUR",
             "reason": (
@@ -102,7 +119,7 @@ def test_invalid_financial_decision_returns_400(
         f"/compensation-requests/{request_id}/decision",
         json={
             "decision": "approved",
-            "decided_by": "ops_manager_001",
+            "decided_by": OPERATOR_ID,
             "reason": (
                 "Attempted approval without amount."
             ),

@@ -312,6 +312,16 @@ def test_compensation_workflow_is_audited(
         ]["compensation_request_id"]
     )
 
+    transition_case_status(
+    case_id=case_id,
+    new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
+    )
+
     decision_result = record_compensation_decision(
         compensation_request_id=compensation_request_id,
         decision="approved",
@@ -335,6 +345,8 @@ def test_compensation_workflow_is_audited(
     assert event_types == [
         "case_created",
         "compensation_review_created",
+        "case_status_changed",
+        "case_claimed",
         "compensation_decision_recorded",
     ]
 
@@ -347,7 +359,12 @@ def test_compensation_workflow_is_audited(
         == compensation_request_id
     )
 
-    decision_event = timeline[2]
+    decision_event = next(
+    event
+    for event in timeline
+    if event["event_type"]
+    == "compensation_decision_recorded"
+)
 
     assert decision_event["actor_type"] == "human"
     assert decision_event["actor_id"] == OPERATOR_ID
@@ -389,6 +406,16 @@ def test_repeated_compensation_decision_does_not_duplicate_audit_event(
         request_result[
             "compensation_request"
         ]["compensation_request_id"]
+    )
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
     )
 
     for _ in range(2):

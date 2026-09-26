@@ -495,6 +495,16 @@ async function resolveEscalation(
       `${API_URL}/escalations/${escalationId}/resolve`,
       {
         method: "PATCH",
+        headers: {
+        "Content-Type":
+          "application/json",
+         },
+
+      body: JSON.stringify({
+        operator_id:
+          DEMO_OPERATOR_ID,
+      }),
+      
       }
     );
 
@@ -650,6 +660,15 @@ async function completeTask(
       `${API_URL}/tasks/${taskId}/complete`,
       {
         method: "PATCH",
+        headers: {
+        "Content-Type":
+          "application/json",
+        },
+
+      body: JSON.stringify({
+        operator_id:
+          DEMO_OPERATOR_ID,
+      }),
       }
     );
 

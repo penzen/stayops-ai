@@ -366,8 +366,21 @@ def assign_existing_task(
         )
 
 @app.patch("/tasks/{task_id}/complete")
-def complete_existing_task(task_id: str):
-    task = complete_task(task_id)
+def complete_existing_task(
+    task_id: str,
+    payload: CaseOperatorAction,
+):
+    try:
+        task = complete_task(
+            task_id=task_id,
+            operator_id=payload.operator_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
 
     if task is None:
         raise HTTPException(
@@ -413,10 +426,19 @@ def verify_access(
 @app.patch("/escalations/{escalation_id}/resolve")
 def resolve_existing_escalation(
     escalation_id: str,
+    payload: CaseOperatorAction,
 ):
-    escalation = resolve_escalation(
-        escalation_id
-    )
+    try:
+        escalation = resolve_escalation(
+            escalation_id=escalation_id,
+            operator_id=payload.operator_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        ) from exc
 
     if escalation is None:
         raise HTTPException(

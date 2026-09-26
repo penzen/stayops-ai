@@ -277,7 +277,7 @@ def create_task_if_missing(
         "task": task,
     }
 
-def complete_task(task_id: str):
+def complete_task(task_id: str,operator_id: str | None = None,):
     """
     Mark an operational task as completed.
 
@@ -301,6 +301,61 @@ def complete_task(task_id: str):
             return None
 
         task = dict(row)
+        # -----------------------------------------------------
+        # HUMAN AUTHORIZATION
+        # -----------------------------------------------------
+
+        authorized_operator_id = None
+
+        if operator_id is not None:
+            operator_id = operator_id.strip()
+
+            if not operator_id:
+                raise ValueError(
+                    "Operator ID is required."
+                )
+
+            if task["case_id"] is None:
+                raise ValueError(
+                    "Task must belong to a Case "
+                    "before human completion."
+                )
+
+            case_row = connection.execute(
+                """
+                SELECT *
+                FROM cases
+                WHERE case_id = ?
+                """,
+                (task["case_id"],),
+            ).fetchone()
+
+            if case_row is None:
+                raise ValueError(
+                    f"Case does not exist: {task['case_id']}"
+                )
+
+            case = dict(case_row)
+
+            if case["status"] != "waiting_human":
+                raise ValueError(
+                    "Case must be waiting_human "
+                    "before human task completion."
+                )
+
+            if case["assigned_to"] is None:
+                raise ValueError(
+                    "Case must be claimed before "
+                    "completing human operational work."
+                )
+
+            if case["assigned_to"] != operator_id:
+                raise ValueError(
+                    "Only the assigned Case operator "
+                    "can complete this task."
+                )
+
+            authorized_operator_id = operator_id
 
         if task["task_status"] == "completed":
             return task
@@ -314,35 +369,17 @@ def complete_task(task_id: str):
             (task_id,),
         )
         if task["case_id"] is not None:
-            case_row = connection.execute(
-                """
-                SELECT assigned_to
-                FROM cases
-                WHERE case_id = ?
-                """,
-                (task["case_id"],),
-            ).fetchone()
-
-            operator_id = (
-                case_row["assigned_to"]
-                if (
-                    case_row is not None
-                    and case_row["assigned_to"] is not None
-                )
-                else None
-            )
-
             record_case_event(
                 case_id=task["case_id"],
                 event_type="task_completed",
                 actor_type=(
                     "human"
-                    if operator_id is not None
+                    if authorized_operator_id is not None
                     else "system"
                 ),
                 actor_id=(
-                    operator_id
-                    if operator_id is not None
+                    authorized_operator_id
+                    if authorized_operator_id is not None
                     else "task_service"
                 ),
                 summary="Operational task completed.",

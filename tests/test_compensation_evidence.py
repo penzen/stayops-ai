@@ -1,7 +1,10 @@
-from backend.services.cases import ensure_case
-
 from backend.services.tasks import (
     create_task_if_missing,
+)
+from backend.services.cases import (
+    ensure_case,
+    transition_case_status,
+    claim_case,
 )
 
 from backend.services.escalations import (
@@ -14,7 +17,7 @@ from backend.services.compensation import (
     get_compensation_evidence,
 )
 
-
+OPERATOR_ID = "GRO_254"
 BOOKING_ID = "book_demo_current_001"
 PROPERTY_ID = "prop_15"
 
@@ -71,6 +74,17 @@ def test_compensation_evidence_contains_operational_context(
     test_db,
 ):
     request = create_financial_scenario()
+    case_id = request["case_id"]
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
+    )
 
     evidence = get_compensation_evidence(
         request["compensation_request_id"]
@@ -142,13 +156,25 @@ def test_compensation_evidence_includes_human_decision(
     test_db,
 ):
     request = create_financial_scenario()
+    case_id = request["case_id"]
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+    
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
+    )
+
 
     record_compensation_decision(
         compensation_request_id=(
             request["compensation_request_id"]
         ),
         decision="approved",
-        decided_by="ops_manager_001",
+        decided_by=OPERATOR_ID,
         amount=125.00,
         currency="EUR",
         reason="Extended heating disruption.",
@@ -164,4 +190,4 @@ def test_compensation_evidence_includes_human_decision(
     assert decision["decision"] == "approved"
     assert decision["amount"] == 125.00
     assert decision["currency"] == "EUR"
-    assert decision["decided_by"] == "ops_manager_001"
+    assert decision["decided_by"] == OPERATOR_ID

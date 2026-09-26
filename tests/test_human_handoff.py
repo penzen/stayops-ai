@@ -622,7 +622,10 @@ def test_full_agent_human_agent_handoff_lifecycle(test_db):
     task_id = task_result["task"]["task_id"]
 
     task_response = client.patch(
-        f"/tasks/{task_id}/complete"
+        f"/tasks/{task_id}/complete",
+        json={
+            "operator_id": OPERATOR_ID,
+        },
     )
 
     assert task_response.status_code == 200
@@ -634,7 +637,10 @@ def test_full_agent_human_agent_handoff_lifecycle(test_db):
     )
 
     escalation_response = client.patch(
-        f"/escalations/{escalation_id}/resolve"
+    f"/escalations/{escalation_id}/resolve",
+    json={
+        "operator_id": OPERATOR_ID,
+        },
     )
 
     assert escalation_response.status_code == 200
@@ -696,4 +702,171 @@ def test_unclaimed_case_cannot_return_to_agent(test_db):
         return_case_to_agent(
             case_id=case_id,
             operator_id=OPERATOR_ID,
+        )
+
+def test_assigned_operator_can_complete_case_task(
+    test_db,
+):
+    case_result = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="heating",
+        summary="Heating requires human work.",
+    )
+
+    case_id = case_result["case"]["case_id"]
+
+    task_result = create_task_if_missing(
+        property_id=PROPERTY_ID,
+        booking_id=BOOKING_ID,
+        category="heating",
+        title="Restore heating",
+        case_id=case_id,
+    )
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
+    )
+
+    task = complete_task(
+        task_id=task_result["task"]["task_id"],
+        operator_id=OPERATOR_ID,
+    )
+
+    assert task["task_status"] == "completed"
+
+def test_other_operator_cannot_complete_case_task(
+    test_db,
+):
+    case_result = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="heating",
+        summary="Heating requires human work.",
+    )
+
+    case_id = case_result["case"]["case_id"]
+
+    task_result = create_task_if_missing(
+        property_id=PROPERTY_ID,
+        booking_id=BOOKING_ID,
+        category="heating",
+        title="Restore heating",
+        case_id=case_id,
+    )
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="assigned Case operator",
+    ):
+        complete_task(
+            task_id=task_result["task"]["task_id"],
+            operator_id="GRO_612",
+        )
+
+def test_assigned_operator_can_resolve_case_escalation(
+    test_db,
+):
+    case_result = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="plumbing",
+        summary="Plumbing requires human intervention.",
+    )
+
+    case_id = case_result["case"]["case_id"]
+
+    escalation_result = create_escalation_if_missing(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="plumbing",
+        reason="Physical plumbing work required.",
+        priority="high",
+        case_id=case_id,
+    )
+
+    escalation_id = (
+        escalation_result[
+            "escalation"
+        ]["escalation_id"]
+    )
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
+    )
+
+    escalation = resolve_escalation(
+        escalation_id=escalation_id,
+        operator_id=OPERATOR_ID,
+    )
+
+    assert escalation["status"] == "resolved"
+
+
+def test_other_operator_cannot_resolve_case_escalation(
+    test_db,
+):
+    case_result = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="plumbing",
+        summary="Plumbing requires human intervention.",
+    )
+
+    case_id = case_result["case"]["case_id"]
+
+    escalation_result = create_escalation_if_missing(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="plumbing",
+        reason="Physical plumbing work required.",
+        priority="high",
+        case_id=case_id,
+    )
+
+    escalation_id = (
+        escalation_result[
+            "escalation"
+        ]["escalation_id"]
+    )
+
+    transition_case_status(
+        case_id=case_id,
+        new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id=OPERATOR_ID,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="assigned Case operator",
+    ):
+        resolve_escalation(
+            escalation_id=escalation_id,
+            operator_id="GRO_612",
         )

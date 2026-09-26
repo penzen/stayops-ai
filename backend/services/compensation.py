@@ -272,7 +272,9 @@ def record_compensation_decision(
             "Allowed decisions: approved, denied."
         )
 
-    if not decided_by.strip():
+    decided_by = decided_by.strip()
+
+    if not decided_by:
         raise ValueError(
             "decided_by is required."
         )
@@ -343,6 +345,43 @@ def record_compensation_decision(
             request_row)
 
         # -------------------------------------------------
+        # HUMAN CASE OWNERSHIP
+        # -------------------------------------------------
+
+        case_row = connection.execute(
+            """
+            SELECT *
+            FROM cases
+            WHERE case_id = ?
+            """,
+            (
+                compensation_request[
+                    "case_id"
+                ],
+            ),
+        ).fetchone()
+
+        if case_row is None:
+            raise ValueError(
+                "Refund Case does not exist: "
+                f"{compensation_request['case_id']}"
+            )
+
+        refund_case = dict(case_row)
+
+        if refund_case["assigned_to"] is None:
+            raise ValueError(
+                "Refund Case must be claimed before "
+                "a financial decision can be recorded."
+            )
+
+        if refund_case["assigned_to"] != decided_by:
+            raise ValueError(
+                "Only the assigned Case operator "
+                "can record the financial decision."
+            )
+
+        # -------------------------------------------------
         # FINAL DECISIONS ARE IDEMPOTENT
         # -------------------------------------------------
 
@@ -361,6 +400,16 @@ def record_compensation_decision(
                 "reason": "existing_compensation_decision",
                 "decision": dict(existing_row),
             }
+
+        # -------------------------------------------------
+        # CASE MUST STILL REQUIRE HUMAN ACTION
+        # -------------------------------------------------
+
+        if refund_case["status"] != CaseStatus.WAITING_HUMAN:
+            raise ValueError(
+                "Refund Case must be waiting_human "
+                "before a financial decision can be recorded."
+            )
 
         # -------------------------------------------------
         # CREATE FINAL DECISION

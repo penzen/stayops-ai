@@ -3,7 +3,10 @@ import sqlite3
 from backend.services.cases import (
     ensure_case,
     get_case,
+    transition_case_status,
+    claim_case,
 )
+
 from backend.services.demo import reset_demo_state
 
 from backend.services.compensation import (
@@ -11,7 +14,7 @@ from backend.services.compensation import (
     record_compensation_decision,
 )
 
-
+OPERATOR_ID = "GRO_254"
 PROPERTY_ID = "prop_15"
 BOOKING_ID = "book_demo_current_001"
 
@@ -56,6 +59,16 @@ def test_reset_demo_state_removes_cases_and_financial_state(
         compensation_result["compensation_request"]
     )
 
+    transition_case_status(
+    case_id=refund_case_id,
+    new_status="waiting_human",
+    )
+
+    claim_case(
+        case_id=refund_case_id,
+        operator_id=OPERATOR_ID,
+    )
+
     record_compensation_decision(
         compensation_request_id=(
             compensation_request[
@@ -63,7 +76,7 @@ def test_reset_demo_state_removes_cases_and_financial_state(
             ]
         ),
         decision="approved",
-        decided_by="ops_manager_001",
+        decided_by=OPERATOR_ID,
         amount=100.00,
         currency="EUR",
         reason="Approved after operational review.",
