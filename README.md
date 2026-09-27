@@ -1,10 +1,20 @@
 # StayOps AI
 
-[![StayOps CI](https://github.com/penzen/stayops-ai/actions/workflows/ci.yml/badge.svg?branch=v2)](https://github.com/penzen/stayops-ai/actions/workflows/ci.yml)
+[![StayOps CI](https://github.com/penzen/stayops-ai/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/penzen/stayops-ai/actions/workflows/ci.yml)
 
-StayOps AI is an autonomous guest-operations system for short-term-rental teams. It is designed to do more than generate guest replies: it retrieves operational context, uses company knowledge, takes bounded actions through tools, observes tool results, persists the conversation, and escalates safely when human intervention is required.
+**StayOps is a bounded AI guest-operations system for short-term-rental teams.**
 
-> **V2 baseline:** this branch represents the stable architectural baseline of StayOps before the next layer of product capabilities is added. The goal of V2 is a small, reproducible, testable agent architecture with clear boundaries between probabilistic reasoning and deterministic business logic.
+It combines an LLM agent with deterministic operational workflows, persistent Case ownership, human handoffs, financial review, retrieval-augmented operational knowledge, audit trails, and a human operations dashboard.
+
+The core design principle is simple:
+
+> **Use AI for ambiguity. Use normal software for certainty.**
+
+The agent can interpret messy guest messages, understand context, choose tools, retrieve operational guidance, and decide what needs attention.
+
+It cannot bypass deterministic business rules, directly manipulate the database, approve compensation, resolve Cases without evidence, or act outside explicitly exposed capabilities.
+
+---
 
 ## Demo
 
@@ -12,316 +22,1126 @@ StayOps AI is an autonomous guest-operations system for short-term-rental teams.
 
 **Live demo:** https://d8hbj9y50bgwb.cloudfront.net
 
-------------------------------------------------------------------------
+The demo includes synthetic guest stays and supports workflows such as:
 
-## What StayOps demonstrates
+- heating failures
+- plumbing incidents
+- access issues
+- operational tasks
+- human escalation
+- Case ownership
+- technician assignment
+- compensation requests
+- human financial decisions
+- multi-turn follow-ups
+- deterministic Case resolution
 
-StayOps is built around one principle:
+---
 
-> **Use AI for ambiguity. Use normal software for certainty.**
+# Why StayOps exists
 
-The LLM handles interpretation, context selection, reasoning, and tool choice. Deterministic application code handles persistence, validation, permissions, idempotency, and database mutations.
+A useful operations agent has to do more than generate a good reply.
 
-The production runtime intentionally uses **one Guest Operations Agent**. The evaluation judge is separate and is not part of the production agent path.
+It needs to answer questions such as:
+
+> Which guest and booking is this about?
+
+> Is this a new issue or a follow-up to an existing one?
+
+> What operational procedure applies?
+
+> Is the agent allowed to act?
+
+> Does a technician need to be assigned?
+
+> Does a human need to take ownership?
+
+> Has the requested action actually happened?
+
+> Is there enough evidence to close the issue?
+
+> If a guest requests compensation, which operational incident caused it?
+
+StayOps treats those as **system-design problems**, not just prompting problems.
+
+---
+
+# Core architecture
+
+```text
+Guest
+  ↓
+Next.js Guest UI
+  ↓
+FastAPI
+  ↓
+Guest Operations Agent
+  │
+  ├── Operations MCP
+  │       ↓
+  │   deterministic Python services
+  │       ↓
+  │   SQLite operational state
+  │
+  └── Knowledge MCP
+          ↓
+       Qdrant
+          ↓
+   StayOps SOPs + STR knowledge
+```
+
+The production path intentionally uses **one Guest Operations Agent**.
+
+The system does not use multiple agents simply because the problem can be described as "agentic." Separate deterministic services and human workflows are used where they provide stronger control.
+
+For the dedicated architecture document, see:
+
+[assets/architecture.md](assets/architecture.md)
+
+---
+
+# AI versus deterministic responsibility
+
+```text
+                       StayOps
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+              ▼                       ▼
+             LLM               Deterministic code
+              │                       │
+      intent interpretation        validation
+      issue classification         permissions
+      context selection            persistence
+      tool choice                  Case lifecycle
+      ambiguity handling           idempotency
+      guest communication          database writes
+      new-vs-follow-up reasoning    financial authority
+              │                    resolution gates
+              │                       │
+              └───────────┬───────────┘
+                          ▼
+                   bounded autonomy
+```
+
+The model is deliberately used where interpretation is valuable.
+
+Normal software owns the parts where correctness should not depend on model behavior.
+
+---
+
+# Case-centric operational model
+
+StayOps V3 introduces a persistent **Case** model for operational ownership.
+
+A guest may have several unrelated problems during the same booking.
+
+```text
+Guest
+  ↓
+Booking
+  │
+  ├── Heating Case
+  ├── Plumbing Case
+  ├── Access Case
+  └── Refund Case
+```
+
+Each Case has its own:
+
+- `case_id`
+- booking
+- property
+- issue category
+- workflow status
+- summary
+- human owner
+- creation time
+- resolution time
+
+Tasks and escalations belong to Cases.
+
+Messages remain booking-level because one guest message can legitimately affect multiple Cases.
+
+---
+
+## Case states
+
+```text
+open
+  ↓
+in_progress
+  ↓
+waiting_guest
+  ↓
+waiting_human
+  ↓
+resolved
+```
+
+The states describe **what must happen next**, not merely which records already exist.
+
+### `open`
+
+The Case has been created.
+
+### `in_progress`
+
+StayOps can continue work without waiting for the guest or a human.
+
+### `waiting_guest`
+
+The workflow requires information or confirmation from the guest.
+
+### `waiting_human`
+
+Progress requires a human operator, technician, approval, or another capability outside agent authority.
+
+### `resolved`
+
+The deterministic resolution gate has confirmed that the Case satisfies its resolution conditions.
+
+---
+
+# Case resolution is evidence-gated
+
+The agent cannot simply decide:
+
+> "The problem looks fixed, so I'll mark it resolved."
+
+Case resolution is handled separately from normal workflow updates.
+
+```text
+Agent believes issue may be complete
+            ↓
+attempt_case_resolution
+            ↓
+deterministic checks
+            │
+            ├── required resolution evidence?
+            ├── open tasks?
+            └── open escalations?
+            ↓
+       resolve or block
+```
+
+A created task is not proof of resolution.
+
+A created escalation is not proof of resolution.
+
+A polite guest response is not proof of resolution.
+
+Even completed human work is not automatically equivalent to the guest's underlying issue being resolved.
+
+For example:
+
+```text
+Heating task completed
+        +
+Heating escalation resolved
+        ↓
+Human work complete
+
+Guest confirms heating works
+        ↓
+Resolution evidence
+
+Deterministic resolution gate
+        ↓
+Heating Case resolved
+```
+
+---
+
+# Human handoff
+
+Human escalation is not treated as agent failure.
+
+It is a valid and often correct outcome.
+
+```text
+Agent
+  ↓
+determines human action is required
+  ↓
+creates/reuses escalation
+  ↓
+Case → waiting_human
+  ↓
+Human Operations Queue
+  ↓
+Operator claims Case
+  ↓
+Human performs bounded actions
+```
+
+Once a Case is claimed, human actions are tied to that operator.
+
+This prevents an arbitrary dashboard user from performing actions on a Case owned by somebody else.
+
+---
+
+# Human Operations Dashboard
+
+StayOps includes an operations interface for Cases waiting on human action.
+
+The dashboard provides:
+
+- human Case queue
+- guest and booking context
+- property context
+- Case ownership
+- conversation history
+- technician assignment
+- task completion
+- escalation resolution
+- financial review
+- compensation evidence
+- Case audit timeline
+- return-to-agent control
+
+The frontend is intentionally separated into focused components:
+
+```text
+frontend/src/app/operations/
+├── page.tsx
+├── constants.ts
+├── types.ts
+├── utils.ts
+└── components/
+    ├── CaseOverview.tsx
+    ├── ConversationPanel.tsx
+    ├── EscalationPanel.tsx
+    ├── FinancialReview.tsx
+    ├── QueueList.tsx
+    ├── TaskPanel.tsx
+    └── Timeline.tsx
+```
+
+`page.tsx` primarily owns orchestration, API interaction, and state.
+
+Presentation concerns are kept in dedicated components.
+
+---
+
+# Tasks and technicians
+
+Operational tasks belong to Cases.
+
+```text
+Heating Case
+    ↓
+Operational task
+    ↓
+Maintenance technician
+```
+
+Technicians are loaded from the backend operational database rather than hard-coded into the UI.
+
+Task assignment validates that the selected worker belongs to the technical maintenance team.
+
+The human who owns the Case and the technician performing field work are separate concepts:
+
+```text
+Case operator
+    ≠
+Task technician
+```
+
+---
+
+# Escalations
+
+Escalations represent human attention required by a Case.
+
+Supported operational categories include:
+
+- access
+- plumbing
+- heating
+- electrical
+- maintenance
+- safety
+- cleaning
+- wifi
+- refund
+- other
+
+Open escalations contribute to Case workflow state and deterministic resolution checks.
+
+The system also prevents refund workflows from bypassing the dedicated financial orchestration path.
+
+---
+
+# Refund and compensation architecture
+
+Refund handling is intentionally separated from normal operational work.
+
+The Guest Operations Agent does **not** have financial authority.
+
+It cannot:
+
+- approve compensation
+- deny compensation
+- determine a final refund amount
+- invent a refund percentage
+- promise payment
+- claim a refund has been approved without a recorded human decision
+
+A financial request creates or reuses a dedicated **Refund Case**.
+
+```text
+Guest requests refund
+        ↓
+ensure_refund_workflow
+        ↓
+Refund Case
+        ↓
+Compensation Request
+        ↓
+Financial escalation
+        ↓
+waiting_human
+        ↓
+Authorized human decision
+```
+
+The deterministic `ensure_refund_workflow` service owns this orchestration.
+
+The agent is not expected to manually assemble the workflow from lower-level tools.
+
+---
+
+# Operational Case ↔ Refund Case relationship
+
+A refund often exists because another operational problem occurred.
+
+Those remain separate Cases.
+
+Example:
+
+```text
+Booking
+   │
+   ├── Heating Case
+   │      case_heating_123
+   │
+   └── Refund Case
+          case_refund_456
+               │
+               ↓
+        Compensation Request
+        related_case_id =
+        case_heating_123
+```
+
+The relationship is stored on the compensation request using the existing operational `case_id`.
+
+No artificial third Case is created just to connect them.
+
+This means the financial reviewer can see the operational evidence that caused the request.
+
+---
+
+## Mixed operational + financial messages
+
+A single guest message may contain both intents:
+
+> "The heating has been broken all evening. I want a full refund."
+
+StayOps handles both workflows:
 
 ```text
 Guest message
-    ↓
-FastAPI
-    ↓
-Guest Operations Agent
-    ├── Operations MCP
-    │      ↓
-    │   deterministic Python services
-    │      ↓
-    │   SQLite operational state
-    │
-    └── Knowledge MCP
-           ↓
-        Qdrant
-           ↓
-        SOPs + STR knowledge
-    ↓
-Guest response
+     ↓
+Heating Case
+     ├── heating task
+     ├── heating escalation
+     └── waiting_human
+     │
+     │ related_case_id
+     ▼
+Refund Case
+     ├── compensation request
+     ├── financial escalation
+     └── waiting_human
 ```
 
-This is a bounded tool-using agent architecture. It is ReAct-like in the sense that the model can iteratively reason, call tools, observe results, and continue, but StayOps does not implement the classic ReAct prompting format explicitly. The OpenAI Agents SDK manages the reasoning/tool loop while deterministic services control side effects.
+The agent is instructed to process the operational problem and preserve its Case ID when the financial relationship is clear.
 
-------------------------------------------------------------------------
+The deterministic service layer also provides a safety net.
 
-## End-to-end request lifecycle
-
-Conversation persistence is deliberately **not** left to the LLM.
+If `related_case_id` is missing:
 
 ```text
-Guest sends message
+Exactly one matching operational Case
         ↓
-POST /agent/chat
+link automatically
+
+Multiple possible operational Cases
         ↓
-FastAPI deterministically stores
-incoming message as sender_type=guest
-        ↓
-Guest Operations Agent runs
-        ↓
-┌─────────────────────────────────────┐
-│ Agent retrieves context / knowledge │
-│ and chooses bounded MCP tools       │
-└─────────────────────────────────────┘
-        ↓
-Operations MCP
-        ↓
-Deterministic services
-        ↓
-Task / escalation / incident state
-        ↓
-Agent final response
-        ↓
-FastAPI deterministically stores
-outgoing message as sender_type=agent
-        ↓
-Response returned to UI
+do not guess
 ```
 
-This prevents a model decision from determining whether the conversation history is persisted.
+An existing compensation request with no relationship can also be safely backfilled later when the relationship becomes unambiguous.
 
-------------------------------------------------------------------------
+An already-established relationship is never overwritten automatically.
 
-## Architecture
+---
 
-For the dedicated architecture document, see [Architecture](assets/architecture.md).
+# Compensation evidence
 
-```mermaid
-flowchart TD
-    U[Operator / Demo User]
+Human reviewers receive a deterministic evidence package.
 
-    U --> CF1[CloudFront - Frontend]
-    CF1 --> S3[S3 - Static Next.js Frontend]
+It can include:
 
-    U --> CF2[CloudFront - Backend HTTPS]
-    CF2 --> EC2[EC2]
-    EC2 --> D[Dockerized FastAPI]
+- compensation request
+- refund Case
+- related operational Case
+- booking
+- property
+- related tasks
+- related escalations
+- open task count
+- open escalation count
+- recorded financial decision
 
-    D --> P1[Persist incoming guest message]
-    P1 --> A[Guest Operations Agent]
-
-    A --> OMCP[Operations MCP]
-    A --> KMCP[Knowledge MCP]
-
-    OMCP --> SVC[Deterministic Python Services]
-    SVC --> SQL[(SQLite)]
-
-    KMCP --> Q[(Qdrant)]
-    Q --> SOP[StayOps SOPs + STR Operations Knowledge]
-
-    A --> P2[Return final response to FastAPI]
-    P2 --> D
-    D --> P3[Persist outgoing agent response]
-
-    EC2 --> SM[Secrets Manager]
-    EC2 --> CW[CloudWatch]
-    EC2 --> ECR[ECR]
-```
-
-### AI versus deterministic responsibility
+Example:
 
 ```text
-                 StayOps
-                    │
-        ┌───────────┴───────────┐
-        │                       │
-        ▼                       ▼
-       LLM               Deterministic code
-        │                       │
- interpretation              validation
- reasoning                   permissions
- context selection           persistence
- tool choice                 idempotency
- response generation         database writes
-        │                       │
-        └───────────┬───────────┘
-                    ▼
-             bounded autonomy
+Compensation Review
+
+Requested outcome
+Full refund
+
+Related operational Case
+Heating · resolved
+
+Operational tasks
+1 total
+0 open
+Restore heating → completed
+
+Operational escalations
+1 total
+0 open
+Heating escalation → resolved
 ```
 
-The design goal is not to make every part "agentic." The model is used where ambiguity is useful; ordinary software is used where correctness should be explicit.
+Importantly, the evidence relationship survives after the operational Case resolves.
 
-------------------------------------------------------------------------
+```text
+Heating Case
+waiting_human
+      ↓
+in_progress
+      ↓
+resolved
+      │
+      │ persistent related_case_id
+      ▼
+Compensation Request
+```
 
-## MCP and capability boundaries
+A later financial reviewer still sees the historical incident, completed task, and resolved escalation.
 
-The agent never receives arbitrary SQL access.
+---
 
-Operational capabilities are exposed through narrow MCP tools such as:
+# Human financial authority
 
--   `lookup_guest`
--   `lookup_reservation`
--   `lookup_property`
--   `lookup_access_system`
--   `lookup_open_incidents`
--   `check_guest_access_permission`
--   `ensure_operations_task`
--   `ensure_human_escalation`
+A compensation request remains pending until an authorized human records a decision.
+
+Before a financial decision can be written:
+
+- the Refund Case must be `waiting_human`
+- the Refund Case must be claimed
+- the decision-maker must be the operator who owns the Case
+
+Possible final decisions:
+
+```text
+approved
+denied
+```
+
+An approved decision requires:
+
+- amount
+- currency
+- reason
+- human actor
+
+A denied decision requires:
+
+- reason
+- human actor
+
+The decision is persisted separately from the model response.
+
+---
+
+# Historical refund safety
+
+A resolved refund workflow should not be recreated simply because a guest later asks:
+
+> "Was my refund completed?"
+
+StayOps distinguishes a historical follow-up from a genuinely new request.
+
+```text
+Previous resolved Refund Case
+        ↓
+Guest asks for status
+        ↓
+reuse historical workflow
+        ↓
+NO duplicate Refund Case
+NO duplicate compensation request
+NO duplicate escalation
+```
+
+A distinct new financial request can explicitly create a new workflow.
+
+---
+
+# Idempotency
+
+Repeated turns should not multiply operational records.
+
+StayOps uses deterministic reuse logic for:
+
+- Cases
+- tasks
+- escalations
+- compensation requests
+- refund workflows
+
+```text
+Same unresolved issue
+        ↓
+matching active record?
+    ┌───────┴───────┐
+   yes              no
+    │                │
+  reuse            create
+```
+
+Idempotency is validated against database state, not simply inferred from whether a tool was called.
+
+---
+
+# Follow-up and multi-turn reasoning
+
+The agent receives bounded operational context for the booking.
+
+This allows messages such as:
+
+> "It is still broken."
+
+> "Nobody has fixed it yet."
+
+> "Any update?"
+
+> "It happened again."
+
+to be interpreted against existing Case state.
+
+If a follow-up clearly belongs to an active Case, the agent reuses it.
+
+If several Cases could plausibly match, StayOps does not create a generic replacement Case.
+
+It asks for the minimum clarification required.
+
+---
+
+# Structured operational playbooks
+
+Operational workflow rules are represented as structured playbooks.
+
+Playbooks define things such as:
+
+- required checks
+- safe guest actions
+- prohibited actions
+- operational actions
+- priority rules
+- escalation conditions
+- resolution conditions
+
+The agent uses them as authoritative operational policy.
+
+```text
+Guest issue
+    ↓
+identify category
+    ↓
+load structured playbook
+    ↓
+perform bounded workflow
+```
+
+This is separate from semantic knowledge retrieval.
+
+---
+
+# SQL versus RAG
+
+StayOps separates:
+
+> **What is true now?**
+
+from:
+
+> **How should this situation be handled?**
+
+```text
+                     Agent
+                ┌──────┴──────┐
+                ▼             ▼
+             SQLite         Qdrant
+                │             │
+          current truth    expertise
+                │             │
+             guests          SOPs
+             bookings        procedures
+             Cases           STR knowledge
+             tasks
+             escalations
+             decisions
+```
+
+### SQLite is operational truth
+
+SQLite stores current state such as:
+
+- guests
+- bookings
+- properties
+- Cases
+- tasks
+- escalations
+- incidents
+- messages
+- compensation requests
+- compensation decisions
+- Case events
+- team members
+- access configuration
+
+### Qdrant is operational expertise
+
+Qdrant contains:
+
+- StayOps internal SOPs
+- short-term-rental operational knowledge
+- troubleshooting guidance
+- reusable procedural knowledge
+
+Internal StayOps SOPs take precedence over broader retrieved guidance.
+
+> **SQL tells the agent what is true. RAG tells the agent how to handle it.**
+
+---
+
+# MCP as a capability boundary
+
+The LLM never receives arbitrary database access.
+
+Instead:
 
 ```text
 LLM
  ↓
-MCP tool contract
+MCP tool
  ↓
 deterministic service
  ↓
-validation / business rule
+validation / permission check
  ↓
-SQLite mutation or lookup
+SQLite
 ```
+
+Examples of bounded operational tools include:
+
+- guest lookup
+- reservation lookup
+- property lookup
+- access verification
+- Case lookup
+- Case context lookup
+- operational Case creation/reuse
+- Case workflow transitions
+- Case resolution attempts
+- task creation/reuse
+- escalation creation/reuse
+- playbook retrieval
+- refund workflow orchestration
+- compensation evidence lookup
 
 The Knowledge MCP is read-only during agent execution.
 
 > **The agent gets tools, not unlimited power.**
 
-------------------------------------------------------------------------
+---
 
-## State and knowledge
+# Conversation persistence
 
-StayOps separates **what is true now** from **how to handle a situation**.
+Conversation persistence does not depend on the LLM remembering to save messages.
 
 ```text
-                Agent
-          ┌───────┴────────┐
-          ▼                ▼
-       SQLite            Qdrant
-          │                │
-   current truth     reusable expertise
-          │                │
- guests/bookings      internal SOPs
- tasks/incidents      STR operations
- escalations          guidance
- messages
+Guest sends message
+        ↓
+FastAPI
+        ↓
+persist guest message
+        ↓
+run agent
+        ↓
+receive final response
+        ↓
+persist agent message
+        ↓
+return response
 ```
 
-### SQLite: current truth
+Messages are stored at booking level so the same conversation can provide context across multiple related Cases.
 
-SQLite stores structured operational state such as:
+---
 
--   guests
--   bookings
--   properties
--   tasks
--   escalations
--   incidents
--   guest messages
--   access configuration
+# Audit trail
 
-### Qdrant: reusable expertise
+Important Case actions produce persisted Case events.
 
-Qdrant stores operational knowledge such as:
+Examples include:
 
--   plumbing procedures
--   heating procedures
--   refund handling
--   short-term-rental operational guidance
--   StayOps-specific SOPs
+- Case created
+- status changed
+- operator claimed Case
+- task created
+- task assigned
+- task completed
+- escalation created
+- escalation resolved
+- compensation review created
+- operational Case linked to compensation
+- compensation decision recorded
+- Case returned to agent
+- Case resolved
 
-Internal StayOps SOPs are treated as authoritative and take precedence over broader retrieved operational guidance.
+The operations UI renders these records as the **Case Timeline**.
 
-> **SQL tells the agent what is true now. RAG tells the agent how to handle it.**
+This creates a business-level audit trail separate from model traces.
 
-StayOps does **not** use a knowledge graph in V2. Relationships in the operational database remain relational, while semantic retrieval is handled by Qdrant.
+---
 
-------------------------------------------------------------------------
+# Observability
 
-## Example workflows
+StayOps has several distinct observability layers.
 
-### Worsening plumbing leak
+### Agent execution
+
+OpenAI Agents SDK tracing provides visibility into model execution and tool usage.
+
+### Business audit
+
+Persisted `case_events` record meaningful workflow changes.
+
+### Operational UI
+
+The Human Operations Dashboard exposes:
+
+- Case ownership
+- workflow state
+- tasks
+- escalations
+- conversation
+- financial evidence
+- human decisions
+- timeline
+
+### Runtime infrastructure
+
+The deployed backend sends runtime logs to CloudWatch.
+
+These layers answer different questions and are intentionally not treated as interchangeable.
+
+---
+
+# Evaluation philosophy
+
+StayOps does not treat:
 
 ```text
-Guest reports worsening leak
-        ↓
-Retrieve guest + booking + property
-        ↓
-Retrieve plumbing SOP
-        ↓
-Give safe immediate guidance
-        ↓
-ensure_operations_task(category=plumbing)
-        ↓
-ensure_human_escalation(category=plumbing)
-        ↓
-Observe tool results
-        ↓
-Respond to guest
+tool called
 ```
 
-The agent can provide safe guidance, create or reuse a plumbing task, and create or reuse a high-priority escalation. It does not claim that the physical problem has been resolved.
-
-### Heating failure
-
-The agent retrieves heating guidance, provides safe thermostat-level troubleshooting, avoids unsafe equipment instructions, creates or reuses operational work, and escalates when human intervention is required.
-
-### Refund request
-
-The agent cannot approve, promise, calculate, or issue a refund.
+as equivalent to:
 
 ```text
-Refund request
+operation succeeded
+```
+
+The evaluation system inspects actual tool results and database state.
+
+```text
+Agent scenario
+      ↓
+tool calls
+tool outputs
+database state
+final response
+      ↓
+deterministic assertions
+      +
+LLM judge
+      ↓
+scenario result
+```
+
+---
+
+# Testing
+
+The repository contains regression coverage across the major deterministic workflows.
+
+Coverage includes:
+
+- access authorization
+- Case creation and reuse
+- Case lifecycle
+- Case context
+- Case API behavior
+- Case resolution
+- audit timeline
+- task creation and idempotency
+- task assignment
+- task completion
+- escalation handling
+- human Case claiming
+- human action authorization
+- return-to-agent behavior
+- compensation requests
+- compensation evidence
+- compensation assessment
+- compensation decisions
+- Refund Case resolution
+- refund historical behavior
+- refund workflow idempotency
+- operational ↔ financial Case linking
+- safe relationship backfilling
+- ambiguous multi-Case protection
+- demo reset
+- technician retrieval
+- message persistence
+
+Run deterministic tests with:
+
+```bash
+uv run pytest
+```
+
+---
+
+# Agent evaluation suite
+
+Agent-level evaluations cover real multi-step behavior rather than isolated helper functions.
+
+The suite checks areas including:
+
+- deterministic scenario requirements
+- tool usage
+- tool outputs
+- database mutations
+- duplicate prevention
+- multi-turn Case reuse
+- human handoff
+- financial authority
+- financial approval
+- financial denial
+- historical refund handling
+- guest-facing response quality
+
+Run:
+
+```bash
+uv run python -m backend.evals.run_evals
+```
+
+The evaluation suite uses model calls and local MCP/Qdrant infrastructure, so it remains separate from the fast deterministic unit-test path.
+
+---
+
+# Failure-driven development
+
+Several StayOps capabilities came directly from failures discovered during testing and manual end-to-end validation.
+
+The development loop is:
+
+```text
+Run scenario
      ↓
-Continue handling underlying issue
-     +
-Create refund escalation
+Inspect trace
      ↓
-Authorized human review
+Inspect tool results
+     ↓
+Inspect database state
+     ↓
+Find incorrect behavior
+     ↓
+Add regression test
+     ↓
+Fix deterministic logic
+or agent instruction
+     ↓
+Run suite again
 ```
 
-> **Escalation is a successful outcome when autonomous action would be unsafe or unauthorized.**
+Examples include:
 
-------------------------------------------------------------------------
+### Cross-category escalation reuse
 
-## Idempotency
+An early deduplication rule could reuse an unrelated escalation.
 
-Repeated guest messages should not create duplicate operational work.
+The category was added to the deterministic reuse boundary and the failure became regression coverage.
+
+### Tool call without database effect
+
+Evaluation exposed situations where a tool could be invoked without producing the expected persisted state.
+
+Tests were strengthened to inspect the database rather than treating invocation as success.
+
+### Duplicate operational work
+
+Repeated guest messages were tested against Case/task/escalation reuse logic.
+
+### Refund workflow escape hatch
+
+Generic escalation tooling could potentially bypass the canonical financial workflow.
+
+Refund escalation creation is now owned by `ensure_refund_workflow`.
+
+### Human authorization
+
+Human dashboard actions were hardened so explicit human operations require the Case to be claimed by the acting operator.
+
+### Operational ↔ refund Case linkage
+
+An end-to-end heating + refund scenario exposed a compensation request that existed correctly but had no relationship to the heating Case.
+
+The workflow now:
+
+- passes `related_case_id` when the relationship is clear
+- automatically links a single unambiguous operational Case
+- safely backfills an existing unlinked request
+- refuses to guess between multiple operational Cases
+
+The failure remains covered by regression tests.
+
+---
+
+# Example end-to-end workflow
+
+Consider:
+
+> **Guest:** "The heating has been broken all evening. I want a full refund."
+
+StayOps can interpret two related intents.
 
 ```text
-Same issue reported again
-        ↓
-ensure_operations_task
-        ↓
-existing open task?
-   ┌────┴────┐
-  yes        no
-   │          │
- reuse      create
-
-Same rule applies to escalations.
+Guest message
+     │
+     ├──────────────────────────────────┐
+     │                                  │
+     ▼                                  ▼
+Heating problem                    Refund request
+     │                                  │
+     ▼                                  │
+Heating Case                           │
+     │                                  │
+     ├── structured heating playbook    │
+     ├── operational task               │
+     ├── human escalation               │
+     └── waiting_human                  │
+     │                                  │
+     └──────── related_case_id ─────────┘
+                                        ↓
+                                  Refund Case
+                                        │
+                              Compensation Request
+                                        │
+                              Financial escalation
+                                        │
+                                  waiting_human
 ```
 
-The deterministic service layer checks the relevant booking, property, category, and open state before creating new operational records.
+The guest may later say:
 
-This was strengthened after regression testing exposed a bug where an escalation could be reused across the wrong operational category.
+> **Guest:** "The heating is working now, thanks."
 
-------------------------------------------------------------------------
+Once deterministic resolution requirements are satisfied:
 
-## Reproducible bootstrap
+```text
+Heating Case → resolved
+```
 
-Generated runtime state is intentionally not the source of truth in Git.
+The Refund Case remains independent:
+
+```text
+Refund Case → pending human financial review
+```
+
+The financial reviewer still sees:
+
+```text
+Related operational Case
+Heating · resolved
+
+Task
+Restore heating · completed
+
+Escalation
+Heating · resolved
+```
+
+The operational history does not disappear simply because the operational Case was resolved.
+
+---
+
+# Multi-language demo
+
+The synthetic demo data includes guests with different language preferences.
+
+Examples include:
+
+| Guest | Language |
+|---|---|
+| Emma Carter | English |
+| Liliane Bavaud | French |
+| Lukas Weber | German |
+
+Preferred language is retrieved from guest data rather than selected through an artificial language toggle.
+
+Operational state remains isolated by booking.
+
+---
+
+# Reproducible state
+
+Generated runtime databases are not treated as source code.
 
 ```text
 Tracked source data
-data/pandoxyd/database_setup_demo.sql
         ↓
-backend.database.bootstrap
+database bootstrap
         ↓
-SQLite operational database
-
+SQLite
 
 Tracked knowledge
-knowledge/stayops_sops/
-knowledge/str_ops/
         ↓
-backend.rag.bootstrap
+RAG bootstrap
         ↓
-Qdrant knowledge store
+Qdrant
 ```
-
-A clean checkout can therefore rebuild both generated stores.
 
 ### Build the database
 
@@ -329,42 +1149,42 @@ A clean checkout can therefore rebuild both generated stores.
 uv run python -m backend.database.bootstrap --force
 ```
 
-### Build the Qdrant index
+### Build the Qdrant knowledge store
 
 ```bash
 uv run python -m backend.rag.bootstrap --force
 ```
 
-Both bootstraps support path overrides for isolated testing:
-
--   `STAYOPS_DB_PATH`
--   `STAYOPS_QDRANT_PATH`
-
-Demo booking dates are generated relative to bootstrap time so the demo access window remains active instead of depending on stale hard-coded dates.
-
-------------------------------------------------------------------------
-
-## Docker reproducibility
-
-The Docker image does not depend on a developer's generated local database or Qdrant directory.
+Path overrides are supported through:
 
 ```text
-Docker build
-    ↓
-install locked production dependencies
-    ↓
-copy tracked backend + data + knowledge
-    ↓
-bootstrap SQLite
-    ↓
-bootstrap Qdrant
-    ↓
-self-contained runtime image
+STAYOPS_DB_PATH
+STAYOPS_QDRANT_PATH
 ```
 
-The image exposes FastAPI on port `8000` and includes a `/health` health check.
+Demo booking dates are generated relative to bootstrap time so the sample stays do not become invalid simply because the repository gets older.
 
-Build locally:
+---
+
+# Docker
+
+The backend is packaged as a reproducible Docker image.
+
+The image:
+
+```text
+installs locked dependencies
+        ↓
+copies tracked application/data/knowledge
+        ↓
+bootstraps SQLite
+        ↓
+bootstraps Qdrant
+        ↓
+starts FastAPI
+```
+
+Build:
 
 ```bash
 docker build -t stayops .
@@ -376,256 +1196,23 @@ Run:
 docker run --rm -p 8000:8000 --env-file .env stayops
 ```
 
-------------------------------------------------------------------------
-
-## Evaluation and testing
-
-StayOps separates fast deterministic unit tests from agent-level evaluations.
+The backend exposes a health endpoint at:
 
 ```text
-                    StayOps quality
-                         │
-            ┌────────────┴────────────┐
-            ▼                         ▼
-       pytest suite              agent eval suite
-            │                         │
- deterministic services      real agent scenarios
-            │                         │
- access / messages /         ┌────────┴────────┐
- tasks / escalations         ▼                 ▼
-                       deterministic       LLM judge
-                          checks               │
-                            │             soft quality
-                     DB side effects      + tool outputs
-                            │                 │
-                            └────────┬────────┘
-                                     ▼
-                              scenario result
-                                     │
-                                     ▼
-                              idempotency eval
+/health
 ```
 
-### Unit tests
+---
 
-The `tests/` suite currently contains five tests covering:
-
--   access allowed during an active stay
--   access denied outside the stay window
--   message persistence
--   task idempotency
--   escalation idempotency
-
-Run:
-
-```bash
-uv run pytest
-```
-
-Current baseline:
-
-```text
-5 passed
-```
-
-### Agent evaluation scenarios
-
-The agent evaluation suite currently covers:
-
--   `plumbing_worsening_leak`
--   `heating_failure`
--   `refund_request`
--   separate plumbing idempotency evaluation
-
-Deterministic checks verify:
-
--   operational knowledge retrieval
--   required tool use
--   correct escalation category
--   forbidden refund language
--   actual SQLite side effects
--   correct task category
--   duplicate prevention
--   explicit task/escalation reuse
-
-### LLM-as-judge
-
-A structured judge scores:
-
--   groundedness
--   SOP adherence
--   safety
--   handoff quality
--   helpfulness
-
-The judge receives both **tool calls and tool outputs**. A tool invocation alone is not treated as proof that the action succeeded.
-
-```text
-Agent run
-   ↓
-tool calls ──────────┐
-tool outputs ────────┤
-final response ──────┤
-expected behavior ───┘
-         ↓
-structured LLM judge
-         ↓
-scores 1–5
-         ↓
-Python threshold: every score >= 4
-```
-
-Critical operational correctness remains deterministic. The LLM judge is used for qualitative properties rather than as the source of truth for database state.
-
-Current V2 baseline result:
-
-```text
-Deterministic scenarios: 3/3
-LLM judge scenarios:     3/3
-Overall scenarios:       3/3
-Idempotency:             PASS
-Overall suite:           PASS
-```
-
-> **Tool invocation does not equal successful execution. Verify the result.**
-
-Run the full agent evaluation suite with:
-
-```bash
-uv run python -m backend.evals.run_evals
-```
-
-The evaluation suite invokes the model and local MCP/Qdrant infrastructure, so it is intentionally separate from the fast mandatory CI job.
-
-------------------------------------------------------------------------
-
-## Continuous integration
-
-V2 includes a lightweight GitHub Actions CI gate.
-
-```text
-Push / pull request to v2
-        ↓
-GitHub Actions
-        ↓
-Checkout
-        ↓
-Install uv + Python
-        ↓
-uv sync --frozen --dev
-        ↓
-uv run pytest
-        ↓
-green / red
-```
-
-The workflow lives at:
-
-```text
-.github/workflows/ci.yml
-```
-
-CI intentionally runs the deterministic pytest suite rather than the LLM evaluation suite. This keeps the required check fast, repeatable, secret-free, and inexpensive.
-
-The agent evaluation suite can be run manually when validating agent behavior or before a larger release.
-
-------------------------------------------------------------------------
-
-## Failure-driven improvement
-
-Several implementation issues were found through evaluation rather than manual prompting alone.
-
-### Cross-category escalation reuse
-
-An early idempotency rule was too broad and could reuse an unrelated open escalation.
-
-The deduplication logic was changed to include the operational category, and the failure was kept as regression coverage.
-
-### Refund escalation
-
-The agent could correctly handle a heating problem while failing to create a separate escalation for an explicit refund request.
-
-The behavior was corrected and added to the regression suite.
-
-### Conversation persistence
-
-Incoming and outgoing messages were previously too closely coupled to agent behavior. V2 moved conversation persistence to the FastAPI boundary so guest and agent messages are recorded deterministically.
-
-The improvement loop is:
-
-```text
-Run agent
-    ↓
-Inspect trace + tool results + database state
-    ↓
-Identify failure
-    ↓
-Create reproducible test
-    ↓
-Fix prompt or deterministic logic
-    ↓
-Run regression suite
-    ↓
-Keep the failure as coverage
-```
-
-------------------------------------------------------------------------
-
-## Multi-guest demo
-
-The UI includes three synthetic demo guests:
-
-  Guest            Language
-  ---------------- ----------
-  Emma Carter      English
-  Liliane Bavaud   French
-  Lukas Weber      German
-
-Language comes from the guest profile rather than a manual UI switch.
-
-Operational state is isolated by booking, so tasks, escalations, and messages for one guest do not appear for another.
-
-------------------------------------------------------------------------
-
-## Observability
-
-StayOps includes several levels of observability.
-
-### Agent-level
-
-OpenAI Agents SDK tracing provides visibility into agent execution and tool use.
-
-### Operator-level
-
-The UI surfaces agent activity such as:
-
--   guest profile retrieval
--   reservation retrieval
--   property retrieval
--   operational knowledge retrieval
--   incident checks
--   task creation or reuse
--   escalation creation or reuse
-
-### Behavioral
-
-The evaluation suite checks decisions, prohibited behavior, tool use, tool outputs, idempotency, and resulting database state.
-
-### Runtime
-
-The deployed backend sends container logs to CloudWatch.
-
-CloudWatch was useful during deployment for identifying first-request latency caused by MCP and embedding-model initialization.
-
-------------------------------------------------------------------------
-
-## AWS deployment
+# AWS deployment
 
 ```text
 Browser
   ↓
 CloudFront
-  ├── Frontend → S3 static Next.js export
+  ├── Frontend
+  │      ↓
+  │     S3
   │
   └── Backend HTTPS
           ↓
@@ -633,271 +1220,397 @@ CloudFront
           ↓
         Docker
           ↓
-        FastAPI
+       FastAPI
           ↓
-     Guest Operations Agent
-       ├── Operations MCP → SQLite
-       └── Knowledge MCP  → Qdrant
+Guest Operations Agent
+   ├── Operations MCP
+   │      ↓
+   │   SQLite
+   │
+   └── Knowledge MCP
+          ↓
+        Qdrant
 ```
 
-The deployed system uses:
+Infrastructure includes:
 
--   **ECR** for versioned backend container images
--   **EC2** for the Dockerized FastAPI + agent runtime
--   **S3** for the statically exported Next.js frontend
--   **CloudFront** for frontend delivery and backend HTTPS
--   **IAM roles** for workload permissions
--   **Secrets Manager** for the OpenAI API key
--   **CloudWatch** for runtime logs and operational visibility
--   **Systems Manager** for instance administration
--   **Terraform** for infrastructure as code
+- **Amazon ECR** — versioned backend container images
+- **Amazon EC2** — Dockerized FastAPI + agent runtime
+- **Amazon S3** — statically exported Next.js frontend
+- **Amazon CloudFront** — frontend delivery and backend HTTPS
+- **AWS IAM** — scoped workload permissions
+- **AWS Secrets Manager** — OpenAI API key
+- **Amazon CloudWatch** — runtime logs
+- **AWS Systems Manager** — instance administration
+- **Terraform** — infrastructure as code
 
-The backend EC2 instance receives an IAM role with scoped workload permissions rather than developer AWS credentials.
+The runtime uses an IAM role rather than embedded developer credentials.
 
-------------------------------------------------------------------------
+---
 
-## Tech stack
+# Tech stack
 
-### AI / agent
+## Agent / AI
 
--   OpenAI Agents SDK
--   MCP
--   Qdrant
--   sentence-transformers
--   RAG
--   Pydantic structured outputs
+- OpenAI Agents SDK
+- Model Context Protocol (MCP)
+- Qdrant
+- RAG
+- sentence-transformers
+- Pydantic structured outputs
 
-### Backend
+## Backend
 
--   Python 3.12+
--   FastAPI
--   SQLite
--   deterministic service layer
--   `uv` for dependency/environment management
+- Python 3.12+
+- FastAPI
+- SQLite
+- deterministic service layer
+- `uv`
 
-### Frontend
+## Frontend
 
--   Next.js
--   TypeScript
--   Tailwind CSS
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
 
-### Evaluation
+## Evaluation
 
--   pytest
--   deterministic scenario checks
--   SQLite side-effect verification
--   idempotency regression tests
--   LLM-as-judge with tool outputs
+- pytest
+- deterministic assertions
+- SQLite side-effect validation
+- agent scenario evaluations
+- LLM-as-judge
+- regression tests
 
-### Infrastructure
+## Infrastructure
 
--   Docker
--   GitHub Actions
--   AWS ECR
--   AWS EC2
--   AWS S3
--   AWS CloudFront
--   AWS IAM
--   AWS Secrets Manager
--   AWS CloudWatch
--   AWS Systems Manager
--   Terraform
+- Docker
+- GitHub Actions
+- Terraform
+- AWS ECR
+- AWS EC2
+- AWS S3
+- AWS CloudFront
+- AWS IAM
+- AWS Secrets Manager
+- AWS CloudWatch
+- AWS Systems Manager
 
-------------------------------------------------------------------------
+---
 
-## Repository structure
+# Repository structure
 
 ```text
 Stay_ops/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
+│
 ├── backend/
 │   ├── agent/
 │   │   ├── guest_agent.py
 │   │   └── instructions.py
+│   │
 │   ├── api/
+│   │
 │   ├── database/
 │   │   ├── bootstrap.py
 │   │   └── demo_dates.py
+│   │
 │   ├── domain/
-│   │   └── enums.py
+│   │   ├── enums.py
+│   │   └── playbooks.py
+│   │
 │   ├── evals/
 │   │   ├── judge.py
-│   │   ├── run_evals.py
-│   │   └── scenarios.py
+│   │   └── run_evals.py
+│   │
 │   ├── mcp/
+│   │   └── server.py
+│   │
 │   ├── rag/
 │   │   └── bootstrap.py
+│   │
 │   └── services/
-├── data/
-│   └── pandoxyd/
+│       ├── audit.py
+│       ├── cases.py
+│       ├── compensation.py
+│       ├── escalations.py
+│       ├── messages.py
+│       ├── tasks.py
+│       └── teams.py
+│
 ├── frontend/
+│   └── src/
+│       └── app/
+│           ├── page.tsx
+│           └── operations/
+│               ├── page.tsx
+│               ├── constants.ts
+│               ├── types.ts
+│               ├── utils.ts
+│               └── components/
+│
+├── data/
+│
 ├── knowledge/
 │   ├── stayops_sops/
 │   └── str_ops/
+│
 ├── tests/
-│   ├── conftest.py
-│   ├── test_access_rules.py
-│   ├── test_escalations.py
-│   ├── test_messages.py
-│   └── test_tasks.py
+│
 ├── terraform/
+├── assets/
 ├── Dockerfile
-├── .dockerignore
 ├── pyproject.toml
 └── uv.lock
 ```
 
-Generated SQLite and Qdrant runtime data are excluded from Git and rebuilt from tracked sources.
+---
 
-------------------------------------------------------------------------
+# Running locally
 
-## Running locally
+## 1. Clone the repository
 
-### 1. Install dependencies
+```bash
+git clone https://github.com/penzen/stayops-ai.git
+cd stayops-ai
+```
 
-The project uses `uv`.
+## 2. Install Python dependencies
+
+StayOps uses `uv`.
 
 ```bash
 uv sync
 ```
 
-### 2. Configure the environment
+## 3. Configure the backend environment
 
-Create a local `.env` containing:
+Create `.env`:
 
 ```env
-OPENAI_API_KEY=...
+OPENAI_API_KEY=your_key_here
 ```
 
-Do not commit local environment files or credentials.
+Do not commit local credentials.
 
-### 3. Bootstrap generated state
+## 4. Bootstrap SQLite
 
 ```bash
 uv run python -m backend.database.bootstrap --force
+```
+
+## 5. Bootstrap Qdrant knowledge
+
+```bash
 uv run python -m backend.rag.bootstrap --force
 ```
 
-### 4. Start the backend
+## 6. Start FastAPI
 
 ```bash
 uv run uvicorn backend.api.main:app --reload
 ```
 
-The API is available at `http://127.0.0.1:8000` and Swagger at `http://127.0.0.1:8000/docs`.
+Backend:
 
-### 5. Start the frontend
+```text
+http://127.0.0.1:8000
+```
+
+Swagger:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+## 7. Install frontend dependencies
 
 ```bash
 cd frontend
 npm install
-npm run dev
 ```
 
-Configure the frontend with:
+Configure:
 
 ```env
 NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
 ```
 
-The frontend is available at `http://localhost:3000`.
+## 8. Start Next.js
 
-------------------------------------------------------------------------
-
-## Production trade-offs
-
-StayOps V2 is a production-style portfolio deployment and architectural baseline, not a claim that the current system is ready for real customer traffic at scale.
-
-  ------------------------------------------------------------------------------------------
-  Current V2 baseline                 Production direction
-  ----------------------------------- ------------------------------------------------------
-  SQLite                              PostgreSQL / RDS
-
-  Local Qdrant                        Managed vector storage
-
-  Single EC2 instance                 Stateless container service such as ECS/Fargate
-
-  CI + manual deployment              Automated deployment pipeline with environment gates
-
-  CloudWatch logs                     Logs + metrics + alerts
-
-  Manual review loop                  Stored operator feedback
-
-  Demo reset endpoints                Environment-specific administrative controls
-  ------------------------------------------------------------------------------------------
-
-Further production work would include:
-
--   authentication and authorization
--   rate limiting
--   request correlation IDs
--   structured audit logs
--   retry policies
--   alerting
--   cost and token monitoring
--   operator feedback capture
--   stronger secret rotation
--   wider regression coverage
-
-------------------------------------------------------------------------
-
-## V2 baseline boundaries
-
-V2 deliberately stops before introducing a long-running operational case model.
-
-```text
-V1
-working agentic guest-operations system
-        ↓
-V2
-hardened architectural baseline
-        ├── reproducible state
-        ├── deterministic persistence
-        ├── bounded MCP capabilities
-        ├── unit tests
-        ├── agent evaluations
-        ├── Docker reproducibility
-        └── CI
-        ↓
-Future evolution
-long-running operational ownership
-        ├── case lifecycle
-        ├── richer playbooks
-        ├── stronger handoffs
-        ├── richer observability
-        └── broader operational workflows
+```bash
+npm run dev
 ```
 
-Keeping this boundary explicit makes V2 useful as a readable reference architecture rather than hiding the core design underneath later product complexity.
+Frontend:
 
-------------------------------------------------------------------------
+```text
+http://localhost:3000
+```
 
-## Key engineering principles
+Human Operations Dashboard:
+
+```text
+http://localhost:3000/operations
+```
+
+---
+
+# Demo reset
+
+The demo environment can be reset between scenarios so previous Cases and messages do not contaminate a new test.
+
+Example:
+
+```bash
+curl -X POST http://127.0.0.1:8000/demo/reset/book_demo_current_001
+```
+
+Then run a fresh guest scenario through the UI or `/agent/chat`.
+
+---
+
+# Development verification
+
+Backend:
+
+```bash
+uv run pytest
+```
+
+Agent evaluations:
+
+```bash
+uv run python -m backend.evals.run_evals
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+Before a release, all four should be clean.
+
+---
+
+# Continuous integration
+
+GitHub Actions runs deterministic backend verification on pushes and pull requests.
+
+```text
+Push / Pull Request
+       ↓
+GitHub Actions
+       ↓
+Install uv
+       ↓
+Install Python 3.12
+       ↓
+uv sync --frozen --dev
+       ↓
+uv run pytest
+```
+
+The model-based agent evaluation suite is intentionally separate from the mandatory CI path because it requires model credentials and external model calls.
+
+A useful future improvement is to add frontend lint/build validation to CI as a second job.
+
+---
+
+# Current production-style boundaries
+
+StayOps is a portfolio system demonstrating production-oriented agent architecture.
+
+It is not presented as a finished large-scale hospitality platform.
+
+| Current implementation | Production evolution |
+|---|---|
+| SQLite | PostgreSQL / RDS |
+| Local Qdrant | Managed vector infrastructure |
+| Single EC2 runtime | ECS/Fargate or another stateless container platform |
+| Demo operator | Production authentication + RBAC |
+| GitHub Actions test gate | Full CI/CD with staged environments |
+| CloudWatch logs | Metrics, alerts, tracing correlation |
+| Manual human workflow | Notification integrations and richer operator routing |
+| Demo reset endpoint | Environment-restricted admin tooling |
+
+Additional production hardening could include:
+
+- authentication and authorization
+- role-based access controls
+- rate limiting
+- request correlation IDs
+- structured logging
+- retries and timeout policies
+- alerting
+- cost/token monitoring
+- operator feedback capture
+- stronger secrets rotation
+- PostgreSQL migrations
+- managed vector infrastructure
+- multi-instance concurrency controls
+- notification integrations
+
+---
+
+# Design principles
 
 > **Use AI for ambiguity. Use normal software for certainty.**
 
 > **The agent gets tools, not unlimited power.**
 
-> **Tool invocation does not equal successful execution. Verify the result.**
+> **Human handoff is part of the architecture, not an exception.**
 
-> **Escalation is a successful outcome when autonomy would be unsafe.**
+> **Tool invocation does not equal successful execution. Verify the resulting state.**
 
-> **SQL is current truth. RAG is reusable expertise.**
+> **SQL is operational truth. RAG is reusable expertise.**
 
-> **Conversation persistence should not depend on an LLM decision.**
+> **Cases own operational work. Messages remain booking-level.**
 
-> **Failures should become regression cases.**
+> **The Case operator and field technician are different roles.**
 
-------------------------------------------------------------------------
+> **Financial decisions belong to humans.**
 
-## Why I built StayOps
+> **Resolution requires evidence.**
 
-The goal was to build an operational agent system rather than another LLM chat interface.
+> **Failures should become regression tests.**
+
+---
+
+# Why I built StayOps
+
+I wanted to build something closer to an actual AI operations product than a chatbot demo.
 
 The main engineering question was:
 
-> How can an agent understand an ambiguous real-world problem, retrieve the right context, make a bounded decision, take action through safe interfaces, verify the intended effect, and escalate when it should not act autonomously?
+> **How can an LLM handle ambiguous real-world requests while remaining constrained by deterministic permissions, persistent operational state, evidence-based workflow rules, and human authority?**
 
-StayOps V2 is the stable architectural baseline for answering that question.
+StayOps explores that question across the full lifecycle:
+
+```text
+understand
+   ↓
+retrieve context
+   ↓
+choose bounded tools
+   ↓
+persist operational state
+   ↓
+coordinate human work
+   ↓
+verify effects
+   ↓
+retain evidence
+   ↓
+resolve only when justified
+```
+
+The goal is not maximum autonomy.
+
+The goal is **useful autonomy with explicit boundaries**.
