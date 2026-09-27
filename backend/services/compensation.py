@@ -584,6 +584,28 @@ def get_compensation_evidence(
             if booking_row is not None
             else None
         )
+        # -------------------------------------------------
+        # PROPERTY
+        # -------------------------------------------------
+
+        property_row = connection.execute(
+            """
+            SELECT *
+            FROM properties
+            WHERE property_id = ?
+            """,
+            (
+                compensation_request[
+                    "property_id"
+                ],
+            ),
+        ).fetchone()
+
+        property_data = (
+            dict(property_row)
+            if property_row is not None
+            else None
+        )
 
         # -------------------------------------------------
         # RELATED OPERATIONAL CASE
@@ -699,6 +721,8 @@ def get_compensation_evidence(
                 related_case,
             "booking":
                 booking,
+            "property":
+                property_data,
             "operational_evidence":
                 operational_evidence,
             "decision":

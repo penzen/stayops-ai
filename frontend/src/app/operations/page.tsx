@@ -45,12 +45,16 @@ type Booking = {
   property_id: string;
   check_in?: string;
   check_out?: string;
+  nights?: number;
+  total_price?: number;
 };
 
 
 type Property = {
   property_id: string;
   title?: string;
+  prop_address?: string;
+  city?: string;
 };
 
 
@@ -124,6 +128,25 @@ type CompensationDecision = {
   reason: string;
   decided_by: string;
   created_at: string;
+};
+
+type CompensationEvidence = {
+  compensation_request: CompensationRequest;
+  refund_case: CaseData | null;
+  related_case: CaseData | null;
+  booking: Booking | null;
+  property: Property | null;
+
+  operational_evidence: {
+    task_count: number;
+    escalation_count: number;
+    open_task_count: number;
+    open_escalation_count: number;
+    tasks: Task[];
+    escalations: Escalation[];
+  };
+
+  decision: CompensationDecision | null;
 };
 
 type CaseEvent = {
@@ -228,6 +251,23 @@ export default function OperationsPage() {
     technicians,
     setTechnicians,
   ] = useState<Technician[]>([]);
+
+  const [
+    compensationEvidence,
+    setCompensationEvidence,
+  ] = useState<CompensationEvidence | null>(
+    null
+  );
+
+  const [
+    isCompensationEvidenceLoading,
+    setIsCompensationEvidenceLoading,
+  ] = useState(false);
+
+  const [
+    compensationEvidenceError,
+    setCompensationEvidenceError,
+  ] = useState<string | null>(null);
 
   const [
     isLoading,
@@ -445,6 +485,58 @@ const loadConversation = useCallback(
 
     } finally {
       setIsConversationLoading(false);
+    }
+  },
+  []
+);
+
+const loadCompensationEvidence = useCallback(
+  async (
+    compensationRequestId: string
+  ) => {
+    setIsCompensationEvidenceLoading(
+      true
+    );
+
+    setCompensationEvidenceError(
+      null
+    );
+
+    try {
+      const response = await fetch(
+        `${API_URL}/compensation-requests/${compensationRequestId}/evidence`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Compensation evidence request failed: ${response.status}`
+        );
+      }
+
+      const data: CompensationEvidence =
+        await response.json();
+
+      setCompensationEvidence(data);
+
+    } catch (error) {
+      console.error(
+        "Unable to load compensation evidence:",
+        error
+      );
+
+      setCompensationEvidence(null);
+
+      setCompensationEvidenceError(
+        "Unable to load financial evidence."
+      );
+
+    } finally {
+      setIsCompensationEvidenceLoading(
+        false
+      );
     }
   },
   []
@@ -681,8 +773,15 @@ async function submitCompensationDecision(
 
     await Promise.all([
       loadQueue(),
+
       loadTimeline(
         selectedEntry.case.case_id
+      ),
+
+      loadCompensationEvidence(
+        selectedEntry
+          .compensation_request
+          .compensation_request_id
       ),
     ]);
 
@@ -917,6 +1016,35 @@ const selectedEntry =
       entry.case.case_id ===
       selectedCaseId
   ) ?? null;
+
+
+
+const selectedCompensationRequestId =
+  selectedEntry
+    ?.compensation_request
+    ?.compensation_request_id ??
+  null;
+
+useEffect(() => {
+  const timer = window.setTimeout(() => {
+    if (!selectedCompensationRequestId) {
+      setCompensationEvidence(null);
+      setCompensationEvidenceError(null);
+      return;
+    }
+
+    void loadCompensationEvidence(
+      selectedCompensationRequestId
+    );
+  }, 0);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, [
+  selectedCompensationRequestId,
+  loadCompensationEvidence,
+]);
 
 
 useEffect(() => {
@@ -1169,16 +1297,15 @@ useEffect(() => {
                                 }
                               </span>
 
+                              {entry.handoff.priority && (
                               <span
                                 className={`rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize ${priorityClasses(
                                   entry.handoff.priority
                                 )}`}
                               >
-                                {
-                                  entry.handoff.priority ??
-                                  "unknown"
-                                }
+                                {entry.handoff.priority}
                               </span>
+                              )}
 
                             </div>
 
@@ -1583,6 +1710,335 @@ useEffect(() => {
                     </p>
                     </div>
 
+                    {/* FINANCIAL EVIDENCE */}
+
+                    <div className="mt-5 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+
+                      <div className="flex items-center justify-between gap-4">
+
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-violet-400">
+                            Decision evidence
+                          </p>
+
+                          <p className="mt-1 text-xs text-zinc-500">
+                            Operational facts linked to this compensation request.
+                          </p>
+                        </div>
+
+                        {compensationEvidence && (
+                          <span className="rounded-full border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400">
+                            {
+                              compensationEvidence
+                                .operational_evidence
+                                .task_count
+                            }{" "}
+                            tasks ·{" "}
+                            {
+                              compensationEvidence
+                                .operational_evidence
+                                .escalation_count
+                            }{" "}
+                            escalations
+                          </span>
+                        )}
+
+                      </div>
+
+
+                      {isCompensationEvidenceLoading ? (
+
+                        <p className="mt-4 text-sm text-zinc-500">
+                          Loading financial evidence...
+                        </p>
+
+                      ) : compensationEvidenceError ? (
+
+                        <p className="mt-4 text-sm text-red-300">
+                          {compensationEvidenceError}
+                        </p>
+
+                      ) : compensationEvidence ? (
+
+                        <div className="mt-4 space-y-4">
+
+
+                          {/* OPERATIONAL CASE */}
+
+                          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+
+                            <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                              Related operational Case
+                            </p>
+
+                            {compensationEvidence.related_case ? (
+
+                              <>
+                                <div className="mt-2 flex flex-wrap items-center gap-2">
+
+                                  <span className="text-sm font-medium capitalize text-zinc-200">
+                                    {
+                                      compensationEvidence
+                                        .related_case
+                                        .category
+                                    }
+                                  </span>
+
+                                  <span className="rounded-full bg-zinc-800 px-2 py-1 text-xs capitalize text-zinc-400">
+                                    {
+                                      compensationEvidence
+                                        .related_case
+                                        .status
+                                        .replace("_", " ")
+                                    }
+                                  </span>
+
+                                </div>
+
+                                <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                                  {
+                                    compensationEvidence
+                                      .related_case
+                                      .summary ??
+                                    "No operational summary recorded."
+                                  }
+                                </p>
+
+                              </>
+
+                            ) : (
+
+                              <p className="mt-2 text-sm text-zinc-500">
+                                No related operational Case.
+                              </p>
+
+                            )}
+
+                          </div>
+
+
+                          {/* BOOKING + PROPERTY */}
+
+                          <div className="grid gap-4 md:grid-cols-2">
+
+                            <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+
+                              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                                Booking
+                              </p>
+
+                              <p className="mt-2 font-mono text-xs text-zinc-400">
+                                {
+                                  compensationEvidence
+                                    .booking
+                                    ?.booking_id ??
+                                  "Unknown booking"
+                                }
+                              </p>
+
+                              {compensationEvidence
+                                .booking
+                                ?.total_price !== undefined && (
+
+                                <p className="mt-2 text-sm text-zinc-300">
+                                  Stay value:{" "}
+                                  {
+                                    compensationEvidence
+                                      .booking
+                                      .total_price
+                                  }{" "}
+                                  EUR
+                                </p>
+
+                              )}
+
+                            </div>
+
+
+                            <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+
+                              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                                Property
+                              </p>
+
+                              <p className="mt-2 text-sm text-zinc-300">
+                                {
+                                  compensationEvidence
+                                    .property
+                                    ?.title ??
+                                  compensationEvidence
+                                    .property
+                                    ?.property_id ??
+                                  "Unknown property"
+                                }
+                              </p>
+
+                              {compensationEvidence
+                                .property
+                                ?.prop_address && (
+
+                                <p className="mt-1 text-xs text-zinc-500">
+                                  {
+                                    compensationEvidence
+                                      .property
+                                      .prop_address
+                                  }
+                                </p>
+
+                              )}
+
+                            </div>
+
+                          </div>
+
+
+                          {/* TASK EVIDENCE */}
+
+                          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+
+                            <div className="flex items-center justify-between">
+
+                              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                                Operational tasks
+                              </p>
+
+                              <span className="text-xs text-zinc-500">
+                                {
+                                  compensationEvidence
+                                    .operational_evidence
+                                    .open_task_count
+                                }{" "}
+                                open
+                              </span>
+
+                            </div>
+
+                            <div className="mt-3 space-y-2">
+
+                              {compensationEvidence
+                                .operational_evidence
+                                .tasks.length === 0 ? (
+
+                                <p className="text-sm text-zinc-500">
+                                  No linked operational tasks.
+                                </p>
+
+                              ) : (
+
+                                compensationEvidence
+                                  .operational_evidence
+                                  .tasks.map(
+                                    (task) => (
+
+                                      <div
+                                        key={task.task_id}
+                                        className="flex items-center justify-between gap-3 rounded-lg bg-zinc-900 px-3 py-2"
+                                      >
+
+                                        <span className="text-sm text-zinc-300">
+                                          {task.title}
+                                        </span>
+
+                                        <span className="text-xs capitalize text-zinc-500">
+                                          {task.task_status}
+                                        </span>
+
+                                      </div>
+
+                                    )
+                                  )
+
+                              )}
+
+                            </div>
+
+                          </div>
+
+
+                          {/* ESCALATION EVIDENCE */}
+
+                          <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+
+                            <div className="flex items-center justify-between">
+
+                              <p className="text-[11px] uppercase tracking-wider text-zinc-600">
+                                Operational escalations
+                              </p>
+
+                              <span className="text-xs text-zinc-500">
+                                {
+                                  compensationEvidence
+                                    .operational_evidence
+                                    .open_escalation_count
+                                }{" "}
+                                open
+                              </span>
+
+                            </div>
+
+                            <div className="mt-3 space-y-2">
+
+                              {compensationEvidence
+                                .operational_evidence
+                                .escalations.length === 0 ? (
+
+                                <p className="text-sm text-zinc-500">
+                                  No linked escalations.
+                                </p>
+
+                              ) : (
+
+                                compensationEvidence
+                                  .operational_evidence
+                                  .escalations.map(
+                                    (escalation) => (
+
+                                      <div
+                                        key={
+                                          escalation.escalation_id
+                                        }
+                                        className="rounded-lg bg-zinc-900 px-3 py-2"
+                                      >
+
+                                        <div className="flex items-center justify-between gap-3">
+
+                                          <span className="text-sm capitalize text-zinc-300">
+                                            {
+                                              escalation.category
+                                            }
+                                          </span>
+
+                                          <span className="text-xs capitalize text-zinc-500">
+                                            {
+                                              escalation.status
+                                            }
+                                          </span>
+
+                                        </div>
+
+                                        <p className="mt-1 text-xs text-zinc-500">
+                                          {
+                                            escalation.reason
+                                          }
+                                        </p>
+
+                                      </div>
+
+                                    )
+                                  )
+
+                              )}
+
+                            </div>
+
+                          </div>
+
+                        </div>
+
+                      ) : null}
+
+                    </div>
+
 
                     {selectedEntry.compensation_decision ? (
 
@@ -1625,7 +2081,6 @@ useEffect(() => {
                         </p>
 
                     </div>
-
                     ) : (
 
                     <div className="mt-5">
@@ -1762,7 +2217,7 @@ useEffect(() => {
                         </p>
 
                         <p className="mt-1 text-xs text-zinc-400">
-                            All linked tasks and escalations are complete.
+                            All human work linked directly to this Case is complete.
                             Control can return to the StayOps agent.
                         </p>
                         </div>
@@ -1846,9 +2301,18 @@ useEffect(() => {
                                 <div className="mt-2 flex items-center justify-between gap-4">
 
                                     <p className="text-sm font-medium text-emerald-300">
-                                    {
-                                        technicians.map(
-                                        (worker) => {
+                                        {(() => {
+                                          const worker =
+                                            technicians.find(
+                                              (item) =>
+                                                item.team_id ===
+                                                task.assigned_to
+                                            );
+
+                                          if (!worker) {
+                                            return task.assigned_to;
+                                          }
+
                                           const name = [
                                             worker.first_name,
                                             worker.last_name,
@@ -1857,17 +2321,11 @@ useEffect(() => {
                                             .join(" ");
 
                                           return (
-                                            <option
-                                              key={worker.team_id}
-                                              value={worker.team_id}
-                                            >
-                                              {name || worker.team_id}
-                                            </option>
+                                            name ||
+                                            worker.team_id
                                           );
-                                        }
-                                      )}
-                                    
-                                    </p>
+                                        })()}
+                                      </p>
 
                                     <button
                                     onClick={() =>

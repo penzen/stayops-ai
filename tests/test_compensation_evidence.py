@@ -105,6 +105,10 @@ def test_compensation_evidence_contains_operational_context(
     )
 
     assert evidence["booking"]["booking_id"] == BOOKING_ID
+    assert (
+        evidence["property"]["property_id"]
+        == PROPERTY_ID
+    )
 
     operational = evidence["operational_evidence"]
 
