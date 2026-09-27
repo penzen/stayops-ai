@@ -33,6 +33,9 @@ from backend.services.cases import (
     get_recent_cases_for_booking,
 
 )
+from backend.services.teams import (
+    get_maintenance_workers,
+)
 
 from backend.agent.guest_agent import run_guest_agent
 
@@ -149,6 +152,12 @@ def read_reservation(booking_id: str):
 @app.get("/operations/queue")
 def read_human_operations_queue():
     return get_human_operations_queue()
+
+
+@app.get("/operations/technicians")
+def read_maintenance_technicians():
+    return get_maintenance_workers()
+
 
 
 @app.patch("/cases/{case_id}/claim")

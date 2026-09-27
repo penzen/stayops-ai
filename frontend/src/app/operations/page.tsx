@@ -21,6 +21,15 @@ type CaseData = {
   created_at: string;
 };
 
+type Technician = {
+  team_id: string;
+  team_group: string;
+  team_role?: string;
+  first_name?: string;
+  last_name?: string;
+  sector?: string;
+};
+
 
 type Guest = {
   guest_id: string;
@@ -145,24 +154,7 @@ const API_URL =
 
 const DEMO_OPERATOR_ID = "GRO_254";
 
-const TECHNICIANS = [
-  {
-    id: "MNT_904",
-    name: "Thomas Moreau",
-  },
-  {
-    id: "MNT_157",
-    name: "Rachid Benali",
-  },
-  {
-    id: "MNT_683",
-    name: "Piotr Kowalski",
-  },
-  {
-    id: "MNT_421",
-    name: "Mamadou Diallo",
-  },
-];
+
 
 function priorityClasses(
   priority: string | null
@@ -233,6 +225,11 @@ export default function OperationsPage() {
   ] = useState<string | null>(null);
 
   const [
+    technicians,
+    setTechnicians,
+  ] = useState<Technician[]>([]);
+
+  const [
     isLoading,
     setIsLoading,
   ] = useState(true);
@@ -270,7 +267,7 @@ const [
   const [
     selectedWorkerId,
     setSelectedWorkerId,
-  ] = useState("MNT_683");
+  ] = useState("");
 
   const [
     actionError,
@@ -350,6 +347,70 @@ const [
     },
     []
   );
+
+
+
+const loadTechnicians = useCallback(
+  async () => {
+    try {
+      const response = await fetch(
+        `${API_URL}/operations/technicians`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `Technicians request failed: ${response.status}`
+        );
+      }
+
+      const data: Technician[] =
+        await response.json();
+
+      setTechnicians(data);
+
+      setSelectedWorkerId(
+        (current) => {
+          if (
+            current &&
+            data.some(
+              (worker) =>
+                worker.team_id === current
+            )
+          ) {
+            return current;
+          }
+
+          return (
+            data[0]?.team_id ??
+            ""
+          );
+        }
+      );
+    } catch (error) {
+      console.error(
+        "Unable to load technicians:",
+        error
+      );
+
+      setTechnicians([]);
+      setSelectedWorkerId("");
+    }
+  },
+  []
+);
+
+useEffect(() => {
+  const timer = window.setTimeout(() => {
+    void loadTechnicians();
+  }, 0);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, [loadTechnicians]);
 
 const loadConversation = useCallback(
   async (bookingId: string) => {
@@ -706,6 +767,7 @@ async function assignTaskToWorker(
 ) {
   if (
     !selectedEntry ||
+    !selectedWorkerId ||
     isActionLoading
   ) {
     return;
@@ -1785,13 +1847,26 @@ useEffect(() => {
 
                                     <p className="text-sm font-medium text-emerald-300">
                                     {
-                                        TECHNICIANS.find(
-                                        (worker) =>
-                                            worker.id ===
-                                            task.assigned_to
-                                        )?.name ??
-                                        task.assigned_to
-                                    }
+                                        technicians.map(
+                                        (worker) => {
+                                          const name = [
+                                            worker.first_name,
+                                            worker.last_name,
+                                          ]
+                                            .filter(Boolean)
+                                            .join(" ");
+
+                                          return (
+                                            <option
+                                              key={worker.team_id}
+                                              value={worker.team_id}
+                                            >
+                                              {name || worker.team_id}
+                                            </option>
+                                          );
+                                        }
+                                      )}
+                                    
                                     </p>
 
                                     <button
@@ -1821,19 +1896,30 @@ useEffect(() => {
                                         event.target.value
                                         )
                                     }
+                                    disabled={
+                                      technicians.length === 0
+                                    }
                                     className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs text-zinc-200 outline-none focus:border-violet-500/60"
                                     >
-                                    {TECHNICIANS.map(
-                                        (worker) => (
+                                    {technicians.map(
+                                      (worker) => {
 
-                                        <option
-                                            key={worker.id}
-                                            value={worker.id}
-                                        >
-                                            {worker.name}
-                                        </option>
+                                        const name = [
+                                          worker.first_name,
+                                          worker.last_name,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(" ");
 
-                                        )
+                                        return (
+                                          <option
+                                            key={worker.team_id}
+                                            value={worker.team_id}
+                                          >
+                                            {name || worker.team_id}
+                                          </option>
+                                        );
+                                      }
                                     )}
                                     </select>
 
@@ -1843,7 +1929,10 @@ useEffect(() => {
                                         task.task_id
                                         )
                                     }
-                                    disabled={isActionLoading}
+                                    disabled={
+                                      isActionLoading ||
+                                      !selectedWorkerId
+                                    }
                                     className="rounded-lg bg-violet-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-violet-400 disabled:opacity-50"
                                     >
                                     {isActionLoading
