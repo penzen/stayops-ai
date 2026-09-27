@@ -51,6 +51,40 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
   name = "Managed-CachingOptimized"
 }
 
+# ---------------------------------------------------------
+# CLOUDFRONT STATIC ROUTE REWRITE
+# ---------------------------------------------------------
+
+resource "aws_cloudfront_function" "frontend_rewrite" {
+  name    = "${var.project_name}-${var.environment}-frontend-rewrite"
+  runtime = "cloudfront-js-2.0"
+  comment = "Rewrite extensionless Next.js static routes to HTML files"
+  publish = true
+
+  code = <<-EOT
+function handler(event) {
+    var request = event.request;
+    var uri = request.uri;
+
+    if (uri === "/") {
+        return request;
+    }
+
+    if (uri.endsWith("/")) {
+        uri = uri.slice(0, -1);
+    }
+
+    var lastSegment = uri.split("/").pop();
+
+    if (lastSegment && !lastSegment.includes(".")) {
+        request.uri = uri + ".html";
+    }
+
+    return request;
+}
+EOT
+}
+
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
   default_root_object = "index.html"
@@ -81,6 +115,11 @@ resource "aws_cloudfront_distribution" "frontend" {
     cache_policy_id = data.aws_cloudfront_cache_policy.caching_optimized.id
 
     compress = true
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.frontend_rewrite.arn
+    }
   }
 
   custom_error_response {
