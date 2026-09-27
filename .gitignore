@@ -104,3 +104,4 @@ desktop.ini
 
 # Python package build metadata
 *.egg-info/
+deploy-v3.json
