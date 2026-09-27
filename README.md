@@ -68,27 +68,21 @@ StayOps treats those as **system-design problems**, not just prompting problems.
 
 # Core architecture
 
-```text
-Guest
-  ↓
-Next.js Guest UI
-  ↓
-FastAPI
-  ↓
-Guest Operations Agent
-  │
-  ├── Operations MCP
-  │       ↓
-  │   deterministic Python services
-  │       ↓
-  │   SQLite operational state
-  │
-  └── Knowledge MCP
-          ↓
-       Qdrant
-          ↓
-   StayOps SOPs + STR knowledge
-```
+<p align="center">
+  <img
+    src="assets/stayops-architecture.png"
+    alt="StayOps V3 core architecture"
+    width="760"
+  >
+</p>
+
+<p align="center">
+  <em>
+    The LLM handles ambiguity and tool selection; deterministic services own
+    permissions, state transitions, financial authority, and persistence.
+  </em>
+</p>
+
 
 The production path intentionally uses **one Guest Operations Agent**.
 
