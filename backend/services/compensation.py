@@ -83,29 +83,7 @@ def ensure_compensation_request(
                 "Compensation requests must belong to a refund Case."
             )
 
-        # -----------------------------------------------------
-        # IDEMPOTENT REUSE
-        # -----------------------------------------------------
-
-        existing_row = connection.execute(
-            """
-            SELECT *
-            FROM compensation_requests
-            WHERE case_id = ?
-            """,
-            (case_id,),
-        ).fetchone()
-
-        if existing_row is not None:
-            return {
-                "created": False,
-                "reason": "existing_compensation_request",
-                "compensation_request": dict(
-                    existing_row
-                ),
-            }
-
-        # -----------------------------------------------------
+       # -----------------------------------------------------
         # VALIDATE RELATED OPERATIONAL CASE
         # -----------------------------------------------------
 
@@ -144,6 +122,91 @@ def ensure_compensation_request(
                 raise ValueError(
                     "Related Case must belong to the same property."
                 )
+
+
+        # -----------------------------------------------------
+        # IDEMPOTENT REUSE / SAFE RELATIONSHIP BACKFILL
+        # -----------------------------------------------------
+
+        existing_row = connection.execute(
+            """
+            SELECT *
+            FROM compensation_requests
+            WHERE case_id = ?
+            """,
+            (case_id,),
+        ).fetchone()
+
+        if existing_row is not None:
+            existing_request = dict(
+                existing_row
+            )
+
+            if (
+                existing_request[
+                    "related_case_id"
+                ] is None
+                and related_case_id is not None
+            ):
+                connection.execute(
+                    """
+                    UPDATE compensation_requests
+                    SET related_case_id = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE compensation_request_id = ?
+                    """,
+                    (
+                        related_case_id,
+                        existing_request[
+                            "compensation_request_id"
+                        ],
+                    ),
+                )
+
+                record_case_event(
+                    case_id=case_id,
+                    event_type=(
+                        "compensation_related_case_linked"
+                    ),
+                    actor_type="system",
+                    actor_id="compensation_service",
+                    summary=(
+                        "Compensation request linked "
+                        "to operational Case."
+                    ),
+                    metadata={
+                        "compensation_request_id":
+                            existing_request[
+                                "compensation_request_id"
+                            ],
+                        "related_case_id":
+                            related_case_id,
+                    },
+                    connection=connection,
+                )
+
+                connection.commit()
+
+                existing_row = connection.execute(
+                    """
+                    SELECT *
+                    FROM compensation_requests
+                    WHERE compensation_request_id = ?
+                    """,
+                    (
+                        existing_request[
+                            "compensation_request_id"
+                        ],
+                    ),
+                ).fetchone()
+
+            return {
+                "created": False,
+                "reason":
+                    "existing_compensation_request",
+                "compensation_request":
+                    dict(existing_row),
+            }
 
         # -----------------------------------------------------
         # CREATE REQUEST
@@ -756,6 +819,27 @@ def ensure_refund_workflow(
     open_cases = get_open_cases_for_booking(
         booking_id
     )
+    # ---------------------------------------------------------
+    # RELATED OPERATIONAL CASE
+    # ---------------------------------------------------------
+
+    if related_case_id is None:
+        related_candidates = [
+            case
+            for case in open_cases
+            if (
+                case["category"] != "refund"
+                and case["property_id"]
+                == property_id
+            )
+        ]
+
+        if len(related_candidates) == 1:
+            related_case_id = (
+                related_candidates[0][
+                    "case_id"
+                ]
+            )
 
     active_refund_case = next(
         (

@@ -3,6 +3,7 @@ from backend.services.compensation import (
     record_compensation_decision,
 )
 from backend.services.cases import (
+    ensure_case,
     resolve_case_if_ready,
     claim_case,
 )
@@ -327,3 +328,128 @@ def test_refund_workflow_creates_new_request_after_resolved_history(
     )
 
     assert old_case["status"] == "resolved"
+
+
+def test_refund_workflow_auto_links_single_operational_case(
+    test_db,
+):
+    heating_result = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="heating",
+        summary="Heating broken all evening.",
+    )
+
+    heating_case_id = (
+        heating_result["case"]["case_id"]
+    )
+
+    result = ensure_refund_workflow(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        reason="Heating broken all evening.",
+        requested_outcome="Full refund",
+        explicit_new_request=True,
+    )
+
+    request = result[
+        "compensation_request"
+    ]
+
+    assert (
+        request["related_case_id"]
+        == heating_case_id
+    )
+
+def test_refund_workflow_backfills_related_case_on_existing_request(
+    test_db,
+):
+    first = ensure_refund_workflow(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        reason="Guest requests a full refund.",
+        requested_outcome="Full refund",
+        explicit_new_request=True,
+    )
+
+    request_id = (
+        first["compensation_request"][
+            "compensation_request_id"
+        ]
+    )
+
+    assert (
+        first["compensation_request"][
+            "related_case_id"
+        ]
+        is None
+    )
+
+    heating_result = ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="heating",
+        summary="Heating broken all evening.",
+    )
+
+    heating_case_id = (
+        heating_result["case"]["case_id"]
+    )
+
+    second = ensure_refund_workflow(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        reason="Heating broken all evening.",
+        requested_outcome="Full refund",
+        explicit_new_request=False,
+    )
+
+    request = second[
+        "compensation_request"
+    ]
+
+    assert (
+        request[
+            "compensation_request_id"
+        ]
+        == request_id
+    )
+
+    assert (
+        request["related_case_id"]
+        == heating_case_id
+    )
+
+def test_refund_workflow_does_not_guess_between_multiple_operational_cases(
+    test_db,
+):
+    ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="heating",
+        summary="Heating is broken.",
+    )
+
+    ensure_case(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        category="plumbing",
+        summary="Kitchen sink is leaking.",
+    )
+
+    result = ensure_refund_workflow(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        reason="Guest requests compensation.",
+        requested_outcome="Refund",
+        explicit_new_request=True,
+    )
+
+    request = result[
+        "compensation_request"
+    ]
+
+    assert (
+        request["related_case_id"]
+        is None
+    )

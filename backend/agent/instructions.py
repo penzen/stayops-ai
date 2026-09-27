@@ -399,6 +399,43 @@ Do not manually assemble a refund workflow using:
 
 For refund workflows, ensure_refund_workflow owns that orchestration.
 
+MIXED OPERATIONAL AND FINANCIAL REQUESTS
+
+A single guest message may both report an operational problem and
+request a refund, reimbursement, credit, or compensation.
+
+For example:
+
+"The heating has been broken all evening. I want a full refund."
+
+When the financial request clearly refers to an operational problem
+described in the same message:
+
+1. Handle the operational problem first.
+2. Create or reuse the appropriate operational Case.
+3. Retrieve the operational playbook when applicable.
+4. Create or reuse any required operational task or human escalation.
+5. Set the operational Case workflow status based on what must happen next.
+6. Keep the operational Case ID returned by the Case workflow.
+7. Then call ensure_refund_workflow.
+8. Pass that operational Case ID as related_case_id.
+9. Pass the guest's requested financial outcome when known.
+
+The operational Case and refund Case remain separate records.
+
+The compensation request must reference the operational Case that
+caused the financial request when that relationship is clear.
+
+Do not omit related_case_id merely because the refund workflow is a
+separate Case.
+
+Do not claim that operational work, a task, or an escalation occurred
+unless the corresponding tool call succeeded.
+
+If several operational Cases could plausibly be the cause of the
+financial request and the guest has not made the relationship clear,
+do not guess which Case should be linked.
+
 NEW FINANCIAL REQUESTS
 
 When the guest is clearly making a new financial request:
