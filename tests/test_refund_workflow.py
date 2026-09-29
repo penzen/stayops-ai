@@ -90,6 +90,89 @@ def test_refund_workflow_reuses_active_workflow(
     assert second["escalation_created"] is False
 
 
+def test_refund_followup_after_final_decision_does_not_reopen_escalation(
+    test_db,
+):
+    first = ensure_refund_workflow(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        reason="Heating failed during the stay.",
+        requested_outcome="Full refund",
+        explicit_new_request=True,
+    )
+
+    case_id = first["case"]["case_id"]
+
+    request_id = (
+        first["compensation_request"][
+            "compensation_request_id"
+        ]
+    )
+
+    escalation_id = (
+        first["escalation"][
+            "escalation_id"
+        ]
+    )
+
+    claim_case(
+        case_id=case_id,
+        operator_id="GRO_254",
+    )
+
+    record_compensation_decision(
+        compensation_request_id=request_id,
+        decision="approved",
+        decided_by="GRO_254",
+        reason="Confirmed service disruption.",
+        amount=150.0,
+        currency="EUR",
+    )
+
+    resolve_escalation(
+        escalation_id,
+        operator_id="GRO_254",
+    )
+
+    followup = ensure_refund_workflow(
+        booking_id=BOOKING_ID,
+        property_id=PROPERTY_ID,
+        reason="What is happening with my refund?",
+        explicit_new_request=False,
+    )
+
+    assert (
+        followup["reason"]
+        == "financial_decision_already_recorded"
+    )
+
+    assert (
+        followup["decision"]["decision"]
+        == "approved"
+    )
+
+    assert followup["escalation_created"] is False
+
+    connection = get_connection()
+
+    try:
+        escalations = connection.execute(
+            """
+            SELECT *
+            FROM escalations
+            WHERE case_id = ?
+              AND category = 'refund'
+            """,
+            (case_id,),
+        ).fetchall()
+
+    finally:
+        connection.close()
+
+    assert len(escalations) == 1
+    assert escalations[0]["status"] == "resolved"
+
+
 def test_refund_workflow_returns_resolved_history_without_duplicates(
     test_db,
 ):

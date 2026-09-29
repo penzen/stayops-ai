@@ -15,6 +15,7 @@ from backend.services.cases import (
     resolve_case_if_ready,
 )
 
+import pytest
 
 BOOKING_ID = "book_demo_current_001"
 PROPERTY_ID = "prop_15"
@@ -44,31 +45,20 @@ def create_refund_case():
         escalation["escalation"],
     )
 
-
-def test_refund_case_cannot_resolve_without_compensation_request(
+def test_refund_escalation_cannot_resolve_before_financial_decision(
     test_db,
 ):
     case, escalation = create_refund_case()
 
-    resolve_escalation(
-        escalation["escalation_id"],
+    transition_case_status(
+        case_id=case["case_id"],
+        new_status="waiting_human",
     )
 
-    result = resolve_case_if_ready(
-        case["case_id"]
+    claim_case(
+        case_id=case["case_id"],
+        operator_id="GRO_254",
     )
-
-    assert result["resolved"] is False
-    assert (
-        result["reason"]
-        == "compensation_request_missing"
-    )
-
-
-def test_refund_case_cannot_resolve_without_financial_decision(
-    test_db,
-):
-    case, escalation = create_refund_case()
 
     ensure_compensation_request(
         case_id=case["case_id"],
@@ -76,20 +66,38 @@ def test_refund_case_cannot_resolve_without_financial_decision(
         requested_outcome="Refund requested.",
     )
 
-    resolve_escalation(
-        escalation["escalation_id"],
+    with pytest.raises(
+        ValueError,
+        match="financial decision",
+    ):
+        resolve_escalation(
+            escalation["escalation_id"],
+            operator_id="GRO_254",
+        )
+
+def test_refund_escalation_cannot_resolve_without_compensation_request(
+    test_db,
+):
+    case, escalation = create_refund_case()
+
+    transition_case_status(
+        case_id=case["case_id"],
+        new_status="waiting_human",
     )
 
-    result = resolve_case_if_ready(
-        case["case_id"]
+    claim_case(
+        case_id=case["case_id"],
+        operator_id="GRO_254",
     )
 
-    assert result["resolved"] is False
-    assert (
-        result["reason"]
-        == "financial_decision_pending"
-    )
-
+    with pytest.raises(
+        ValueError,
+        match="compensation request",
+    ):
+        resolve_escalation(
+            escalation["escalation_id"],
+            operator_id="GRO_254",
+        )
 
 def test_refund_case_resolves_after_human_financial_decision(
     test_db,
