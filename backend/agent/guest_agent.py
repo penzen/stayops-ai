@@ -30,6 +30,35 @@ def get_qdrant_path() -> Path:
 
 QDRANT_PATH = get_qdrant_path()
 
+def build_agent_request(
+    guest_id: str,
+    booking_id: str,
+    message: str,
+    open_cases_text: str,
+    recent_cases_text: str,
+    recent_messages_text: str,
+) -> str:
+    return f"""
+        Guest ID: {guest_id}
+        Booking ID: {booking_id}
+
+        OPEN OPERATIONAL CASES
+
+        {open_cases_text}
+
+        RECENT CASE HISTORY
+
+        {recent_cases_text}
+
+        RECENT BOOKING CONVERSATION
+
+        {recent_messages_text}
+
+        CURRENT GUEST MESSAGE
+
+        {message}
+        """
+
 
 async def run_guest_agent(
     guest_id: str,
@@ -61,6 +90,10 @@ async def run_guest_agent(
     open_cases:
         Optional list of currently open operational Cases for
         the booking.
+
+    recent_cases:
+        Optional bounded Case history for the booking, including
+        resolved Cases used for historical follow-up questions.
 
     recent_messages:
         Optional bounded booking conversation history supplied
@@ -238,22 +271,14 @@ async def run_guest_agent(
             # AGENT REQUEST
             # -------------------------------------------------
 
-            request = f"""
-Guest ID: {guest_id}
-Booking ID: {booking_id}
-
-OPEN OPERATIONAL CASES
-
-{open_cases_text}
-
-RECENT BOOKING CONVERSATION
-
-{recent_messages_text}
-
-CURRENT GUEST MESSAGE
-
-{message}
-"""
+            request = build_agent_request(
+                    guest_id=guest_id,
+                    booking_id=booking_id,
+                    message=message,
+                    open_cases_text=open_cases_text,
+                    recent_cases_text=recent_cases_text,
+                    recent_messages_text=recent_messages_text,
+                )
 
             # -------------------------------------------------
             # TRACE

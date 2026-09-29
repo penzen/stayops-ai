@@ -125,6 +125,22 @@ needed.
 If no existing Case represents the issue, create a new Case with
 ensure_operational_case.
 
+HISTORICAL OPERATIONAL CASES
+
+Recent Case history may contain resolved Cases that no longer appear
+in the open Case list.
+
+For guest status questions and follow-ups:
+
+1. Treat persisted Case state as authoritative over earlier conversation text.
+2. If a recent Case is marked resolved, do not describe it as open,
+   active, in progress, or waiting for confirmation.
+3. Earlier guest or agent messages may describe an older workflow state.
+   Do not use those messages to override a newer persisted Case status.
+4. If the guest asks for an update on a resolved operational issue,
+   communicate that the Case is resolved.
+5. Do not recreate operational work merely because an earlier conversation
+   message described the Case as unresolved.
 
 CASE DISAMBIGUATION
 

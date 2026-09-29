@@ -404,6 +404,9 @@ def resolve_escalation(escalation_id: str, operator_id: str | None = None,):
             return None
 
         escalation = dict(row)
+
+        if escalation["status"] == CaseStatus.RESOLVED:
+             return escalation
         # -----------------------------------------------------
         # HUMAN AUTHORIZATION
         # -----------------------------------------------------
@@ -461,8 +464,44 @@ def resolve_escalation(escalation_id: str, operator_id: str | None = None,):
 
             authorized_operator_id = operator_id
 
-        if escalation["status"] == CaseStatus.RESOLVED:
-            return escalation
+        # -----------------------------------------------------
+        # REFUND FINANCIAL DECISION GUARD
+        # -----------------------------------------------------
+
+        if escalation["category"] == IssueCategory.REFUND:
+            compensation_request = connection.execute(
+                """
+                SELECT *
+                FROM compensation_requests
+                WHERE case_id = ?
+                """,
+                (escalation["case_id"],),
+            ).fetchone()
+
+            if compensation_request is None:
+                raise ValueError(
+                    "Refund escalation cannot be resolved "
+                    "without a compensation request."
+                )
+
+            decision = connection.execute(
+                """
+                SELECT *
+                FROM compensation_decisions
+                WHERE compensation_request_id = ?
+                """,
+                (
+                    compensation_request[
+                        "compensation_request_id"
+                    ],
+                ),
+            ).fetchone()
+
+            if decision is None:
+                raise ValueError(
+                    "Refund escalation cannot be resolved "
+                    "before a financial decision is recorded."
+                )
 
         connection.execute(
             """

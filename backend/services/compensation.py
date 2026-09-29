@@ -957,6 +957,46 @@ def ensure_refund_workflow(
     )
 
     # ---------------------------------------------------------
+    # FINAL FINANCIAL DECISION SAFETY GATE
+    # ---------------------------------------------------------
+
+    decision = get_compensation_decision(
+        compensation_request[
+            "compensation_request_id"
+        ]
+    )
+
+    if decision is not None:
+        evidence = get_compensation_evidence(
+            compensation_request[
+                "compensation_request_id"
+            ]
+        )
+
+        return {
+            "created": False,
+            "historical": False,
+            "reason":
+                "financial_decision_already_recorded",
+            "case_created":
+                case_created,
+            "case":
+                refund_case,
+            "compensation_request_created":
+                request_result["created"],
+            "compensation_request":
+                compensation_request,
+            "decision":
+                decision,
+            "evidence":
+                evidence,
+            "escalation_created":
+                False,
+            "escalation":
+                None,
+        }
+
+    # ---------------------------------------------------------
     # HUMAN FINANCIAL ESCALATION
     # ---------------------------------------------------------
 

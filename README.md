@@ -83,6 +83,7 @@ StayOps treats those as **system-design problems**, not just prompting problems.
   </em>
 </p>
 
+
 The production path intentionally uses **one Guest Operations Agent**.
 
 The system does not use multiple agents simply because the problem can be described as "agentic." Separate deterministic services and human workflows are used where they provide stronger control.
