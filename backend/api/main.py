@@ -1,4 +1,7 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
+from agents.mcp import MCPServerManager
 from backend.services.access_rules import verify_guest_access
 from backend.domain.enums import SenderType
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +40,11 @@ from backend.services.teams import (
     get_maintenance_workers,
 )
 
-from backend.agent.guest_agent import run_guest_agent
+from backend.agent.guest_agent import (
+    create_knowledge_mcp_server,
+    create_operations_mcp_server,
+    run_guest_agent,
+)
 
 from backend.services.guests import get_guest
 
@@ -76,10 +83,29 @@ from backend.services.escalations import (
 )
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    servers = [
+        create_operations_mcp_server(),
+        create_knowledge_mcp_server(),
+    ]
+
+    async with MCPServerManager(
+        servers,
+        strict=True,
+        connect_in_parallel=True,
+        connect_timeout_seconds=180.0,
+        cleanup_timeout_seconds=30.0,
+    ) as manager:
+        app.state.mcp_servers = manager.active_servers
+        yield
+
+
 app = FastAPI(
     title="StayOps API",
     description="Operational backend for the StayOps autonomous guest-operations system.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 app.add_middleware(
     CORSMiddleware,
@@ -568,6 +594,7 @@ async def agent_chat(payload: AgentChatRequest):
             open_cases=open_cases,
             recent_cases=recent_cases,
             recent_messages=recent_messages,
+            mcp_servers=app.state.mcp_servers,
         )
 
         # Persist the outgoing agent response deterministically.

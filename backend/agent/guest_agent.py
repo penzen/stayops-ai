@@ -1,12 +1,13 @@
 import asyncio
 import os
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from agents import Agent, Runner, trace
-from agents.mcp import MCPServerStdio
+from agents.mcp import MCPServer, MCPServerStdio
 
 from backend.agent.instructions import GUEST_AGENT_INSTRUCTIONS
 
@@ -29,6 +30,60 @@ def get_qdrant_path() -> Path:
 
 
 QDRANT_PATH = get_qdrant_path()
+
+
+def create_operations_mcp_server(
+    db_path: str | Path | None = None,
+) -> MCPServerStdio:
+    operations_env = os.environ.copy()
+
+    if db_path is not None:
+        operations_env["STAYOPS_DB_PATH"] = str(
+            Path(db_path).resolve()
+        )
+
+    return MCPServerStdio(
+        name="StayOps Operations",
+        params={
+            "command": sys.executable,
+            "args": [
+                "-m",
+                "backend.mcp.server",
+            ],
+            "cwd": str(PROJECT_ROOT),
+            "env": operations_env,
+        },
+        cache_tools_list=True,
+        client_session_timeout_seconds=60,
+    )
+
+
+def create_knowledge_mcp_server() -> MCPServerStdio:
+    return MCPServerStdio(
+        name="StayOps Knowledge",
+        params={
+            "command": "uvx",
+            "args": [
+                "mcp-server-qdrant",
+            ],
+            "env": {
+                "QDRANT_LOCAL_PATH": str(QDRANT_PATH),
+                "COLLECTION_NAME": "stayops_knowledge",
+                "QDRANT_READ_ONLY": "true",
+                "EMBEDDING_MODEL": (
+                    "sentence-transformers/all-MiniLM-L6-v2"
+                ),
+            },
+        },
+        cache_tools_list=True,
+        client_session_timeout_seconds=120,
+    )
+
+
+@asynccontextmanager
+async def _borrow_mcp_server(server: MCPServer):
+    # Reuse an MCP server whose lifecycle is owned by the caller.
+    yield server
 
 def build_agent_request(
     guest_id: str,
@@ -70,6 +125,7 @@ async def run_guest_agent(
     open_cases: list[dict] | None = None,
     recent_cases: list[dict] | None = None,
     recent_messages: list[dict] | None = None,
+    mcp_servers: list[MCPServer] | None = None,
 ):
     """
     Run the StayOps Guest Operations Agent for one guest message.
@@ -101,58 +157,31 @@ async def run_guest_agent(
     """
 
     # ---------------------------------------------------------
-    # STAYOPS OPERATIONAL MCP SERVER
+    # MCP SERVER LIFECYCLE
     # ---------------------------------------------------------
 
-    operations_env = os.environ.copy()
+    if mcp_servers is None:
+        operations_context = create_operations_mcp_server(
+            db_path
+        )
+        knowledge_context = create_knowledge_mcp_server()
+    else:
+        if len(mcp_servers) != 2:
+            raise ValueError(
+                "StayOps expects exactly two MCP servers: "
+                "operations and knowledge."
+            )
 
-    if db_path is not None:
-        operations_env["STAYOPS_DB_PATH"] = str(
-            Path(db_path).resolve()
+        operations_context = _borrow_mcp_server(
+            mcp_servers[0]
+        )
+        knowledge_context = _borrow_mcp_server(
+            mcp_servers[1]
         )
 
-    operations_params = {
-        "command": sys.executable,
-        "args": [
-            "-m",
-            "backend.mcp.server",
-        ],
-        "cwd": str(PROJECT_ROOT),
-        "env": operations_env,
-    }
+    async with operations_context as operations_server:
 
-    # ---------------------------------------------------------
-    # QDRANT KNOWLEDGE MCP SERVER
-    # ---------------------------------------------------------
-
-    knowledge_params = {
-        "command": "uvx",
-        "args": [
-            "mcp-server-qdrant",
-        ],
-        "env": {
-            "QDRANT_LOCAL_PATH": str(QDRANT_PATH),
-            "COLLECTION_NAME": "stayops_knowledge",
-            "QDRANT_READ_ONLY": "true",
-            "EMBEDDING_MODEL": (
-                "sentence-transformers/all-MiniLM-L6-v2"
-            ),
-        },
-    }
-
-    async with MCPServerStdio(
-        name="StayOps Operations",
-        params=operations_params,
-        cache_tools_list=True,
-        client_session_timeout_seconds=60,
-    ) as operations_server:
-
-        async with MCPServerStdio(
-            name="StayOps Knowledge",
-            params=knowledge_params,
-            cache_tools_list=True,
-            client_session_timeout_seconds=120,
-        ) as knowledge_server:
+        async with knowledge_context as knowledge_server:
 
             # -------------------------------------------------
             # OPTIONAL TOOL DEBUGGING
