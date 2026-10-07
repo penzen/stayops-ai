@@ -226,6 +226,13 @@ export default function GuestDetailPage() {
     };
   }, [loadGuest]);
 
+  const waitingHumanCase =
+    data?.cases.find(
+      (item) =>
+        item.status ===
+        "waiting_human"
+    ) ?? null;
+
   function openGuestOps() {
     if (!data) {
       return;
@@ -277,12 +284,25 @@ export default function GuestDetailPage() {
           </div>
 
           {data && (
-            <button
-              onClick={openGuestOps}
-              className="rounded-lg bg-white px-4 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200"
-            >
-              Open in Guest Ops
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {waitingHumanCase && (
+                <Link
+                  href={`/operations?case_id=${encodeURIComponent(
+                    waitingHumanCase.case_id
+                  )}`}
+                  className="rounded-lg border border-violet-500/20 bg-violet-500/10 px-4 py-2.5 text-xs font-semibold text-violet-200 transition hover:bg-violet-500/15"
+                >
+                  Open Operations
+                </Link>
+              )}
+
+              <button
+                onClick={openGuestOps}
+                className="rounded-lg bg-white px-4 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200"
+              >
+                Open in Guest Ops
+              </button>
+            </div>
           )}
         </div>
 

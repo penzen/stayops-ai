@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { QueueEntry } from "../types";
 import { operatorName } from "../utils";
 
@@ -5,12 +6,14 @@ type CaseOverviewProps = {
   entry: QueueEntry;
   isActionLoading: boolean;
   onClaimCase: () => void;
+  onOpenGuestOps: () => void;
 };
 
 export default function CaseOverview({
   entry,
   isActionLoading,
   onClaimCase,
+  onOpenGuestOps,
 }: CaseOverviewProps) {
   return (
     <>
@@ -93,6 +96,28 @@ export default function CaseOverview({
                         entry.case.booking_id
                       }
                     </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {entry.guest && (
+                        <Link
+                          href={`/guests/detail?guest_id=${encodeURIComponent(
+                            entry.guest.guest_id
+                          )}`}
+                          className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-[11px] font-medium text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-200"
+                        >
+                          View guest →
+                        </Link>
+                      )}
+
+                      <button
+                        onClick={() =>
+                          void onOpenGuestOps()
+                        }
+                        className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-[11px] font-medium text-zinc-400 transition hover:border-zinc-700 hover:text-zinc-200"
+                      >
+                        Open Guest Ops →
+                      </button>
+                    </div>
 
                   </div>
 

@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { demoFetch } from "../../lib/demo-session";
 import Timeline from "./components/Timeline";
 import TaskPanel from "./components/TaskPanel";
@@ -26,6 +27,8 @@ import type {
 } from "./types";
 
 export default function OperationsPage() {
+  const router = useRouter();
+
   const [
     queue,
     setQueue,
@@ -142,8 +145,24 @@ const [
 
         setQueue(data);
 
+        const requestedCaseId =
+          new URLSearchParams(
+            window.location.search
+          ).get("case_id");
+
         setSelectedCaseId(
           (current) => {
+            if (
+              requestedCaseId &&
+              data.some(
+                (entry) =>
+                  entry.case.case_id ===
+                  requestedCaseId
+              )
+            ) {
+              return requestedCaseId;
+            }
+
             if (
               current &&
               data.some(
@@ -799,6 +818,48 @@ useEffect(() => {
 }, [loadQueue]);
 
 
+useEffect(() => {
+  if (isLoading) {
+    return;
+  }
+
+  const currentCaseId =
+    new URLSearchParams(
+      window.location.search
+    ).get("case_id");
+
+  if (selectedCaseId) {
+    if (
+      currentCaseId !== selectedCaseId
+    ) {
+      router.replace(
+        `/operations?case_id=${encodeURIComponent(
+          selectedCaseId
+        )}`,
+        {
+          scroll: false,
+        }
+      );
+    }
+
+    return;
+  }
+
+  if (currentCaseId) {
+    router.replace(
+      "/operations",
+      {
+        scroll: false,
+      }
+    );
+  }
+}, [
+  selectedCaseId,
+  isLoading,
+  router,
+]);
+
+
 const selectedEntry =
   queue.find(
     (entry) =>
@@ -806,6 +867,19 @@ const selectedEntry =
       selectedCaseId
   ) ?? null;
 
+
+function openSelectedGuestOps() {
+  if (!selectedEntry) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    "stayops:selectedBookingId",
+    selectedEntry.case.booking_id
+  );
+
+  router.push("/guest-ops");
+}
 
 
 const selectedCompensationRequestId =
@@ -882,6 +956,14 @@ useEffect(() => {
     queue.length - unclaimedCount;
 
 
+  const financialReviewCount =
+    queue.filter(
+      (entry) =>
+        entry.compensation_request
+          ?.status === "pending_review"
+    ).length;
+
+
   return (
     <main className="min-h-screen bg-[#09090b] text-zinc-100">
 
@@ -911,7 +993,7 @@ useEffect(() => {
 
         {/* SUMMARY */}
 
-        <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
 
@@ -947,6 +1029,19 @@ useEffect(() => {
 
             <p className="mt-2 text-3xl font-semibold text-emerald-300">
               {claimedCount}
+            </p>
+
+          </div>
+
+
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+
+            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+              Financial reviews
+            </p>
+
+            <p className="mt-2 text-3xl font-semibold text-violet-300">
+              {financialReviewCount}
             </p>
 
           </div>
@@ -1005,6 +1100,7 @@ useEffect(() => {
                 entry={selectedEntry}
                 isActionLoading={isActionLoading}
                 onClaimCase={claimSelectedCase}
+                onOpenGuestOps={openSelectedGuestOps}
               />
 
              

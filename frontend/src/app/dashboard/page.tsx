@@ -388,6 +388,18 @@ export default function DashboardPage() {
                             {item.summary ??
                               "Operational Case requires attention."}
                           </p>
+
+                          {item.status ===
+                            "waiting_human" && (
+                            <Link
+                              href={`/operations?case_id=${encodeURIComponent(
+                                item.case_id
+                              )}`}
+                              className="mt-3 inline-flex text-[11px] font-medium text-violet-300 transition hover:text-violet-200"
+                            >
+                              Open in Operations →
+                            </Link>
+                          )}
                         </div>
 
                         <div className="flex shrink-0 gap-2 text-[10px] text-zinc-600">

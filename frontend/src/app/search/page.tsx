@@ -432,9 +432,16 @@ export default function SearchPage() {
                         (item) => (
                           <Link
                             key={item.case_id}
-                            href={`/guests/detail?guest_id=${encodeURIComponent(
-                              item.guest_id
-                            )}`}
+                            href={
+                              item.status ===
+                              "waiting_human"
+                                ? `/operations?case_id=${encodeURIComponent(
+                                    item.case_id
+                                  )}`
+                                : `/guests/detail?guest_id=${encodeURIComponent(
+                                    item.guest_id
+                                  )}`
+                            }
                             className="block px-5 py-4 transition hover:bg-zinc-900/80"
                           >
                             <div className="flex flex-wrap items-center gap-2">
