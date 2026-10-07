@@ -21,6 +21,7 @@ from backend.services.demo_sessions import (
     DemoSessionUnauthorized,
     create_demo_session,
     get_demo_session_booking_ids,
+    get_demo_session_overview,
     get_demo_session_stays,
     require_demo_booking_access,
     require_demo_case_access,
@@ -1125,6 +1126,17 @@ def read_public_demo_session_stays(
     ),
 ):
     return get_demo_session_stays(
+        session["session_id"]
+    )
+
+
+@app.get("/demo/sessions/overview")
+def read_public_demo_session_overview(
+    session=Depends(
+        require_demo_session
+    ),
+):
+    return get_demo_session_overview(
         session["session_id"]
     )
 

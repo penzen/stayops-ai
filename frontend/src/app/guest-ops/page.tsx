@@ -337,11 +337,11 @@ const loadConversation =
             tasksResponse,
             escalationsResponse,
           ] = await Promise.all([
-            fetch(
+            demoFetch(
               `${API_URL}/properties/${propertyId}/tasks`
             ),
 
-            fetch(
+            demoFetch(
               `${API_URL}/escalations`
             ),
           ]);

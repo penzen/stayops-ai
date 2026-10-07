@@ -1010,3 +1010,245 @@ def require_demo_incident_access(*, session_id: str, incident_id: str):
         label="Incident",
     )
 
+def get_demo_session_overview(
+    session_id: str,
+):
+    connection = get_connection()
+
+    try:
+        ensure_demo_session_schema(
+            connection
+        )
+
+        session = assert_demo_session_exists(
+            session_id,
+            connection=connection,
+        )
+
+        def count(query: str) -> int:
+            row = connection.execute(
+                query,
+                (session_id,),
+            ).fetchone()
+
+            return int(row["count"])
+
+        metrics = {
+            "active_stays": count(
+                """
+                SELECT COUNT(*) AS count
+                FROM demo_session_bookings
+                WHERE session_id = ?
+                """
+            ),
+            "active_cases": count(
+                """
+                SELECT COUNT(*) AS count
+                FROM cases AS c
+                JOIN demo_session_bookings AS dsb
+                  ON dsb.booking_id = c.booking_id
+                WHERE dsb.session_id = ?
+                  AND c.status != 'resolved'
+                """
+            ),
+            "waiting_human": count(
+                """
+                SELECT COUNT(*) AS count
+                FROM cases AS c
+                JOIN demo_session_bookings AS dsb
+                  ON dsb.booking_id = c.booking_id
+                WHERE dsb.session_id = ?
+                  AND c.status = 'waiting_human'
+                """
+            ),
+            "open_tasks": count(
+                """
+                SELECT COUNT(*) AS count
+                FROM tasks AS t
+                JOIN demo_session_bookings AS dsb
+                  ON dsb.booking_id = t.booking_id
+                WHERE dsb.session_id = ?
+                  AND t.task_status = 'open'
+                """
+            ),
+            "open_escalations": count(
+                """
+                SELECT COUNT(*) AS count
+                FROM escalations AS e
+                JOIN demo_session_bookings AS dsb
+                  ON dsb.booking_id = e.booking_id
+                WHERE dsb.session_id = ?
+                  AND e.status = 'open'
+                """
+            ),
+            "pending_financial_reviews": count(
+                """
+                SELECT COUNT(*) AS count
+                FROM compensation_requests AS cr
+                JOIN demo_session_bookings AS dsb
+                  ON dsb.booking_id = cr.booking_id
+                WHERE dsb.session_id = ?
+                  AND cr.status = 'pending_review'
+                """
+            ),
+        }
+
+        attention_rows = connection.execute(
+            """
+            SELECT
+                c.case_id,
+                c.booking_id,
+                c.category,
+                c.status,
+                c.summary,
+                c.assigned_to,
+                c.created_at,
+
+                g.first_name,
+                g.last_name,
+
+                p.title AS property_title,
+
+                (
+                    SELECT e.priority
+                    FROM escalations AS e
+                    WHERE e.case_id = c.case_id
+                      AND e.status = 'open'
+                    ORDER BY e.created_at DESC
+                    LIMIT 1
+                ) AS priority,
+
+                (
+                    SELECT COUNT(*)
+                    FROM tasks AS t
+                    WHERE t.case_id = c.case_id
+                      AND t.task_status = 'open'
+                ) AS open_task_count,
+
+                (
+                    SELECT COUNT(*)
+                    FROM escalations AS e
+                    WHERE e.case_id = c.case_id
+                      AND e.status = 'open'
+                ) AS open_escalation_count,
+
+                EXISTS (
+                    SELECT 1
+                    FROM compensation_requests AS cr
+                    WHERE cr.case_id = c.case_id
+                      AND cr.status = 'pending_review'
+                ) AS pending_financial_review
+
+            FROM cases AS c
+
+            JOIN demo_session_bookings AS dsb
+              ON dsb.booking_id = c.booking_id
+
+            JOIN bookings AS b
+              ON b.booking_id = c.booking_id
+
+            JOIN guests AS g
+              ON g.guest_id = b.guest_id
+
+            JOIN properties AS p
+              ON p.property_id = c.property_id
+
+            WHERE dsb.session_id = ?
+              AND c.status != 'resolved'
+
+            ORDER BY
+                CASE c.status
+                    WHEN 'waiting_human' THEN 0
+                    WHEN 'in_progress' THEN 1
+                    WHEN 'waiting_guest' THEN 2
+                    ELSE 3
+                END,
+                c.created_at DESC
+
+            LIMIT 8
+            """,
+            (session_id,),
+        ).fetchall()
+
+        attention = [
+            dict(row)
+            for row in attention_rows
+        ]
+
+        stay_rows = connection.execute(
+            """
+            SELECT
+                b.booking_id,
+                b.guest_id,
+                b.property_id,
+                b.book_status,
+
+                g.first_name,
+                g.last_name,
+                g.guest_lang,
+
+                p.title AS property_title,
+
+                dsb.resource_kind,
+
+                (
+                    SELECT COUNT(*)
+                    FROM cases AS c
+                    WHERE c.booking_id = b.booking_id
+                      AND c.status != 'resolved'
+                ) AS active_case_count,
+
+                (
+                    SELECT COUNT(*)
+                    FROM messages AS m
+                    WHERE m.booking_id = b.booking_id
+                ) AS message_count
+
+            FROM demo_session_bookings AS dsb
+
+            JOIN bookings AS b
+              ON b.booking_id = dsb.booking_id
+
+            JOIN guests AS g
+              ON g.guest_id = b.guest_id
+
+            JOIN properties AS p
+              ON p.property_id = b.property_id
+
+            WHERE dsb.session_id = ?
+
+            ORDER BY
+                CASE dsb.resource_kind
+                    WHEN 'custom' THEN 0
+                    ELSE 1
+                END,
+                dsb.created_at DESC,
+                g.first_name,
+                g.last_name
+            """,
+            (session_id,),
+        ).fetchall()
+
+        return {
+            "session": {
+                "session_id": (
+                    session["session_id"]
+                ),
+                "expires_at": (
+                    session["expires_at"]
+                ),
+            },
+            "metrics": metrics,
+            "attention": attention,
+            "stays": [
+                dict(row)
+                for row in stay_rows
+            ],
+            "generated_at": _db_timestamp(
+                _utc_now()
+            ),
+        }
+
+    finally:
+        connection.close()
+
