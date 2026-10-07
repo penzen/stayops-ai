@@ -1252,3 +1252,497 @@ def get_demo_session_overview(
     finally:
         connection.close()
 
+def _guest_operational_status(
+    *,
+    waiting_human_count: int,
+    pending_financial_reviews: int,
+    active_case_count: int,
+    open_task_count: int,
+    open_escalation_count: int,
+):
+    if (
+        waiting_human_count > 0
+        or pending_financial_reviews > 0
+    ):
+        return "needs_human"
+
+    if (
+        active_case_count > 0
+        or open_task_count > 0
+        or open_escalation_count > 0
+    ):
+        return "active_issue"
+
+    return "clear"
+
+
+def get_demo_session_guests(
+    session_id: str,
+):
+    connection = get_connection()
+
+    try:
+        ensure_demo_session_schema(
+            connection
+        )
+        assert_demo_session_exists(
+            session_id,
+            connection=connection,
+        )
+
+        rows = connection.execute(
+            """
+            SELECT
+                g.guest_id,
+                g.first_name,
+                g.last_name,
+                g.email,
+                g.phone,
+                g.guest_lang,
+                g.locale,
+                g.guest_geo,
+
+                b.booking_id,
+                b.property_id,
+                b.check_in,
+                b.check_out,
+                b.nights,
+                b.total_price,
+                b.book_status,
+
+                p.title AS property_title,
+                p.city,
+
+                dsb.resource_kind,
+
+                (
+                    SELECT COUNT(*)
+                    FROM cases AS c
+                    WHERE c.booking_id = b.booking_id
+                      AND c.status != 'resolved'
+                ) AS active_case_count,
+
+                (
+                    SELECT COUNT(*)
+                    FROM cases AS c
+                    WHERE c.booking_id = b.booking_id
+                      AND c.status = 'waiting_human'
+                ) AS waiting_human_count,
+
+                (
+                    SELECT COUNT(*)
+                    FROM tasks AS t
+                    WHERE t.booking_id = b.booking_id
+                      AND t.task_status = 'open'
+                ) AS open_task_count,
+
+                (
+                    SELECT COUNT(*)
+                    FROM escalations AS e
+                    WHERE e.booking_id = b.booking_id
+                      AND e.status = 'open'
+                ) AS open_escalation_count,
+
+                (
+                    SELECT COUNT(*)
+                    FROM compensation_requests AS cr
+                    WHERE cr.booking_id = b.booking_id
+                      AND cr.status = 'pending_review'
+                ) AS pending_financial_reviews,
+
+                (
+                    SELECT COUNT(*)
+                    FROM messages AS m
+                    WHERE m.booking_id = b.booking_id
+                ) AS message_count,
+
+                (
+                    SELECT MAX(m.created_at)
+                    FROM messages AS m
+                    WHERE m.booking_id = b.booking_id
+                ) AS last_message_at
+
+            FROM demo_session_bookings AS dsb
+
+            JOIN bookings AS b
+              ON b.booking_id = dsb.booking_id
+
+            JOIN guests AS g
+              ON g.guest_id = b.guest_id
+
+            JOIN properties AS p
+              ON p.property_id = b.property_id
+
+            WHERE dsb.session_id = ?
+            """,
+            (session_id,),
+        ).fetchall()
+
+        guests = []
+
+        for row in rows:
+            item = dict(row)
+
+            item["operational_status"] = (
+                _guest_operational_status(
+                    waiting_human_count=(
+                        item[
+                            "waiting_human_count"
+                        ]
+                    ),
+                    pending_financial_reviews=(
+                        item[
+                            "pending_financial_reviews"
+                        ]
+                    ),
+                    active_case_count=(
+                        item[
+                            "active_case_count"
+                        ]
+                    ),
+                    open_task_count=(
+                        item[
+                            "open_task_count"
+                        ]
+                    ),
+                    open_escalation_count=(
+                        item[
+                            "open_escalation_count"
+                        ]
+                    ),
+                )
+            )
+
+            guests.append(item)
+
+        status_rank = {
+            "needs_human": 0,
+            "active_issue": 1,
+            "clear": 2,
+        }
+
+        guests.sort(
+            key=lambda item: (
+                status_rank[
+                    item[
+                        "operational_status"
+                    ]
+                ],
+                0
+                if item["resource_kind"]
+                == "custom"
+                else 1,
+                item["first_name"].lower(),
+                item["last_name"].lower(),
+            )
+        )
+
+        return guests
+
+    finally:
+        connection.close()
+
+
+def get_demo_session_guest_detail(
+    *,
+    session_id: str,
+    guest_id: str,
+):
+    connection = get_connection()
+
+    try:
+        ensure_demo_session_schema(
+            connection
+        )
+        assert_demo_session_exists(
+            session_id,
+            connection=connection,
+        )
+
+        row = connection.execute(
+            """
+            SELECT
+                g.*,
+
+                b.booking_id,
+                b.property_id,
+                b.check_in,
+                b.check_out,
+                b.nights,
+                b.total_price,
+                b.book_status,
+                b.source,
+
+                p.title AS property_title,
+                p.city,
+                p.prop_address,
+
+                dsb.resource_kind
+
+            FROM demo_session_bookings AS dsb
+
+            JOIN bookings AS b
+              ON b.booking_id = dsb.booking_id
+
+            JOIN guests AS g
+              ON g.guest_id = b.guest_id
+
+            JOIN properties AS p
+              ON p.property_id = b.property_id
+
+            WHERE dsb.session_id = ?
+              AND g.guest_id = ?
+
+            LIMIT 1
+            """,
+            (
+                session_id,
+                guest_id,
+            ),
+        ).fetchone()
+
+        if row is None:
+            raise DemoSessionAccessDenied(
+                "Guest does not belong to this demo session."
+            )
+
+        base = dict(row)
+        booking_id = base["booking_id"]
+
+        cases = [
+            dict(item)
+            for item in connection.execute(
+                """
+                SELECT *
+                FROM cases
+                WHERE booking_id = ?
+                ORDER BY created_at DESC
+                """,
+                (booking_id,),
+            ).fetchall()
+        ]
+
+        tasks = [
+            dict(item)
+            for item in connection.execute(
+                """
+                SELECT *
+                FROM tasks
+                WHERE booking_id = ?
+                ORDER BY task_date DESC
+                """,
+                (booking_id,),
+            ).fetchall()
+        ]
+
+        escalations = [
+            dict(item)
+            for item in connection.execute(
+                """
+                SELECT *
+                FROM escalations
+                WHERE booking_id = ?
+                ORDER BY created_at DESC
+                """,
+                (booking_id,),
+            ).fetchall()
+        ]
+
+        message_rows = connection.execute(
+            """
+            SELECT *
+            FROM messages
+            WHERE booking_id = ?
+            ORDER BY created_at DESC
+            LIMIT 20
+            """,
+            (booking_id,),
+        ).fetchall()
+
+        messages = [
+            dict(item)
+            for item in reversed(
+                message_rows
+            )
+        ]
+
+        message_count = int(
+            connection.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM messages
+                WHERE booking_id = ?
+                """,
+                (booking_id,),
+            ).fetchone()["count"]
+        )
+
+        compensation = [
+            dict(item)
+            for item in connection.execute(
+                """
+                SELECT
+                    cr.*,
+                    cd.decision,
+                    cd.amount,
+                    cd.currency,
+                    cd.reason
+                        AS decision_reason,
+                    cd.decided_by,
+                    cd.created_at
+                        AS decision_created_at
+                FROM compensation_requests AS cr
+                LEFT JOIN compensation_decisions AS cd
+                  ON cd.compensation_request_id =
+                     cr.compensation_request_id
+                WHERE cr.booking_id = ?
+                ORDER BY cr.created_at DESC
+                """,
+                (booking_id,),
+            ).fetchall()
+        ]
+
+        active_cases = sum(
+            1
+            for item in cases
+            if item["status"] != "resolved"
+        )
+        waiting_human = sum(
+            1
+            for item in cases
+            if (
+                item["status"]
+                == "waiting_human"
+            )
+        )
+        open_tasks = sum(
+            1
+            for item in tasks
+            if (
+                item["task_status"]
+                == "open"
+            )
+        )
+        open_escalations = sum(
+            1
+            for item in escalations
+            if item["status"] == "open"
+        )
+        pending_financial_reviews = sum(
+            1
+            for item in compensation
+            if (
+                item["status"]
+                == "pending_review"
+            )
+        )
+
+        operational_status = (
+            _guest_operational_status(
+                waiting_human_count=(
+                    waiting_human
+                ),
+                pending_financial_reviews=(
+                    pending_financial_reviews
+                ),
+                active_case_count=(
+                    active_cases
+                ),
+                open_task_count=(
+                    open_tasks
+                ),
+                open_escalation_count=(
+                    open_escalations
+                ),
+            )
+        )
+
+        return {
+            "guest": {
+                "guest_id": base["guest_id"],
+                "first_name": base[
+                    "first_name"
+                ],
+                "last_name": base[
+                    "last_name"
+                ],
+                "email": base["email"],
+                "phone": base["phone"],
+                "guest_lang": base[
+                    "guest_lang"
+                ],
+                "locale": base["locale"],
+                "guest_geo": base[
+                    "guest_geo"
+                ],
+            },
+            "reservation": {
+                "booking_id": (
+                    base["booking_id"]
+                ),
+                "property_id": (
+                    base["property_id"]
+                ),
+                "check_in": base[
+                    "check_in"
+                ],
+                "check_out": base[
+                    "check_out"
+                ],
+                "nights": base["nights"],
+                "total_price": base[
+                    "total_price"
+                ],
+                "book_status": base[
+                    "book_status"
+                ],
+                "source": base["source"],
+            },
+            "property": {
+                "property_id": (
+                    base["property_id"]
+                ),
+                "title": base[
+                    "property_title"
+                ],
+                "city": base["city"],
+                "prop_address": base[
+                    "prop_address"
+                ],
+            },
+            "resource_kind": base[
+                "resource_kind"
+            ],
+            "operational_status": (
+                operational_status
+            ),
+            "metrics": {
+                "active_cases": (
+                    active_cases
+                ),
+                "waiting_human": (
+                    waiting_human
+                ),
+                "open_tasks": (
+                    open_tasks
+                ),
+                "open_escalations": (
+                    open_escalations
+                ),
+                "pending_financial_reviews": (
+                    pending_financial_reviews
+                ),
+                "messages": (
+                    message_count
+                ),
+            },
+            "cases": cases,
+            "tasks": tasks,
+            "escalations": escalations,
+            "messages": messages,
+            "compensation": compensation,
+        }
+
+    finally:
+        connection.close()
+

@@ -21,6 +21,8 @@ from backend.services.demo_sessions import (
     DemoSessionUnauthorized,
     create_demo_session,
     get_demo_session_booking_ids,
+    get_demo_session_guest_detail,
+    get_demo_session_guests,
     get_demo_session_overview,
     get_demo_session_stays,
     require_demo_booking_access,
@@ -1139,6 +1141,41 @@ def read_public_demo_session_overview(
     return get_demo_session_overview(
         session["session_id"]
     )
+
+
+@app.get("/demo/sessions/guests")
+def read_public_demo_session_guests(
+    session=Depends(
+        require_demo_session
+    ),
+):
+    return get_demo_session_guests(
+        session["session_id"]
+    )
+
+
+@app.get(
+    "/demo/sessions/guests/{guest_id}"
+)
+def read_public_demo_session_guest_detail(
+    guest_id: str,
+    session=Depends(
+        require_demo_session
+    ),
+):
+    try:
+        return get_demo_session_guest_detail(
+            session_id=session[
+                "session_id"
+            ],
+            guest_id=guest_id,
+        )
+
+    except DemoSessionAccessDenied as exc:
+        raise HTTPException(
+            status_code=403,
+            detail=str(exc),
+        ) from exc
 
 
 @app.post(
