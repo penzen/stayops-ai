@@ -1,0 +1,515 @@
+{
+  "mode": "persistent_mcp",
+  "agent_model": "gpt-5.6-luna",
+  "pricing_as_of": "2026-10-07",
+  "mcp_startup_seconds": 2.8787487000226974,
+  "runs_per_scenario": 5,
+  "summaries": [
+    {
+      "scenario": "plumbing_worsening_leak",
+      "runs": 5,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 10.358672560029664,
+      "avg_llm_requests": 3.4,
+      "avg_tool_calls": 5.8,
+      "avg_input_tokens": 24250.0,
+      "avg_output_tokens": 383.2,
+      "cache_hit_rate": 0.6744412371134021,
+      "avg_cache_write_tokens": 7884.6,
+      "avg_estimated_cost_usd": 0.002760134,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 5,
+        "ensure_operational_case": 5,
+        "ensure_operations_task": 5,
+        "lookup_operational_playbook": 5,
+        "update_case_workflow_status": 5,
+        "lookup_open_incidents": 2,
+        "lookup_case_context": 1,
+        "qdrant-find": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "runs": 5,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 10.582934080017731,
+      "avg_llm_requests": 4.4,
+      "avg_tool_calls": 5.0,
+      "avg_input_tokens": 30833.6,
+      "avg_output_tokens": 349.4,
+      "cache_hit_rate": 0.7529188936744331,
+      "avg_cache_write_tokens": 7605.2,
+      "avg_estimated_cost_usd": 0.002787524,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 5,
+        "ensure_operational_case": 5,
+        "ensure_operations_task": 5,
+        "lookup_operational_playbook": 5,
+        "update_case_workflow_status": 5
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "runs": 5,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 11.024638020037674,
+      "avg_llm_requests": 4.0,
+      "avg_tool_calls": 6.0,
+      "avg_input_tokens": 29213.6,
+      "avg_output_tokens": 464.8,
+      "cache_hit_rate": 0.7195484294985897,
+      "avg_cache_write_tokens": 8181.0,
+      "avg_estimated_cost_usd": 0.003025822,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 5,
+        "ensure_operational_case": 5,
+        "ensure_operations_task": 5,
+        "ensure_refund_workflow": 5,
+        "lookup_operational_playbook": 5,
+        "update_case_workflow_status": 5
+      }
+    }
+  ],
+  "overall_tool_call_breakdown": {
+    "ensure_human_escalation": 15,
+    "ensure_operational_case": 15,
+    "ensure_operations_task": 15,
+    "lookup_operational_playbook": 15,
+    "update_case_workflow_status": 15,
+    "ensure_refund_workflow": 5,
+    "lookup_open_incidents": 2,
+    "lookup_case_context": 1,
+    "qdrant-find": 1
+  },
+  "runs": [
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.877886999980547,
+        "llm_requests": 4,
+        "tool_calls": 7,
+        "input_tokens": 29410,
+        "cached_input_tokens": 21020,
+        "cache_write_input_tokens": 8378,
+        "output_tokens": 428,
+        "reasoning_tokens": 0,
+        "total_tokens": 29838,
+        "cache_hit_rate": 0.7147228833730024,
+        "estimated_cost_usd": 0.0030309,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "qdrant-find": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1,
+        "lookup_case_context": 1
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 8.947984000085853,
+        "llm_requests": 4,
+        "tool_calls": 5,
+        "input_tokens": 28110,
+        "cached_input_tokens": 20394,
+        "cache_write_input_tokens": 7704,
+        "output_tokens": 362,
+        "reasoning_tokens": 0,
+        "total_tokens": 28472,
+        "cache_hit_rate": 0.7255069370330843,
+        "estimated_cost_usd": 0.0027706799999999998,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.128277900046669,
+        "llm_requests": 3,
+        "tool_calls": 6,
+        "input_tokens": 21345,
+        "cached_input_tokens": 13503,
+        "cache_write_input_tokens": 7833,
+        "output_tokens": 373,
+        "reasoning_tokens": 0,
+        "total_tokens": 21718,
+        "cache_hit_rate": 0.6326071679550246,
+        "estimated_cost_usd": 0.0026777100000000002,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "lookup_open_incidents": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 4,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.042320400010794,
+        "llm_requests": 3,
+        "tool_calls": 6,
+        "input_tokens": 21340,
+        "cached_input_tokens": 13504,
+        "cache_write_input_tokens": 7827,
+        "output_tokens": 374,
+        "reasoning_tokens": 0,
+        "total_tokens": 21714,
+        "cache_hit_rate": 0.6328022492970946,
+        "estimated_cost_usd": 0.00267743,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "lookup_open_incidents": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 5,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 8.796893500024453,
+        "llm_requests": 3,
+        "tool_calls": 5,
+        "input_tokens": 21045,
+        "cached_input_tokens": 13355,
+        "cache_write_input_tokens": 7681,
+        "output_tokens": 379,
+        "reasoning_tokens": 0,
+        "total_tokens": 21424,
+        "cache_hit_rate": 0.634592539795676,
+        "estimated_cost_usd": 0.0026439500000000004,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.203455499955453,
+        "llm_requests": 5,
+        "tool_calls": 5,
+        "input_tokens": 34989,
+        "cached_input_tokens": 27373,
+        "cache_write_input_tokens": 7601,
+        "output_tokens": 342,
+        "reasoning_tokens": 0,
+        "total_tokens": 35331,
+        "cache_hit_rate": 0.7823315899282631,
+        "estimated_cost_usd": 0.00286111,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.610742600052617,
+        "llm_requests": 5,
+        "tool_calls": 5,
+        "input_tokens": 34983,
+        "cached_input_tokens": 27370,
+        "cache_write_input_tokens": 7598,
+        "output_tokens": 336,
+        "reasoning_tokens": 0,
+        "total_tokens": 35319,
+        "cache_hit_rate": 0.7823800131492439,
+        "estimated_cost_usd": 0.0028531,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.791935299988836,
+        "llm_requests": 4,
+        "tool_calls": 5,
+        "input_tokens": 28315,
+        "cached_input_tokens": 20684,
+        "cache_write_input_tokens": 7619,
+        "output_tokens": 366,
+        "reasoning_tokens": 0,
+        "total_tokens": 28681,
+        "cache_hit_rate": 0.7304962034257461,
+        "estimated_cost_usd": 0.0027600299999999997,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 4,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 8.955654700053856,
+        "llm_requests": 3,
+        "tool_calls": 5,
+        "input_tokens": 20877,
+        "cached_input_tokens": 13269,
+        "cache_write_input_tokens": 7599,
+        "output_tokens": 354,
+        "reasoning_tokens": 0,
+        "total_tokens": 21231,
+        "cache_hit_rate": 0.6355798246874551,
+        "estimated_cost_usd": 0.00259173,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 5,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 9.35288230003789,
+        "llm_requests": 5,
+        "tool_calls": 5,
+        "input_tokens": 35004,
+        "cached_input_tokens": 27380,
+        "cache_write_input_tokens": 7609,
+        "output_tokens": 349,
+        "reasoning_tokens": 0,
+        "total_tokens": 35353,
+        "cache_hit_rate": 0.7821963204205233,
+        "estimated_cost_usd": 0.00287165,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.671345100039616,
+        "llm_requests": 4,
+        "tool_calls": 6,
+        "input_tokens": 29421,
+        "cached_input_tokens": 21239,
+        "cache_write_input_tokens": 8170,
+        "output_tokens": 445,
+        "reasoning_tokens": 0,
+        "total_tokens": 29866,
+        "cache_hit_rate": 0.7218993236123857,
+        "estimated_cost_usd": 0.00300368,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "ensure_refund_workflow": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 10.72032640001271,
+        "llm_requests": 4,
+        "tool_calls": 6,
+        "input_tokens": 29406,
+        "cached_input_tokens": 21232,
+        "cache_write_input_tokens": 8162,
+        "output_tokens": 437,
+        "reasoning_tokens": 0,
+        "total_tokens": 29843,
+        "cache_hit_rate": 0.722029517785486,
+        "estimated_cost_usd": 0.0029919400000000002,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "ensure_refund_workflow": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.573915100074373,
+        "llm_requests": 4,
+        "tool_calls": 6,
+        "input_tokens": 28936,
+        "cached_input_tokens": 20710,
+        "cache_write_input_tokens": 8214,
+        "output_tokens": 482,
+        "reasoning_tokens": 0,
+        "total_tokens": 29418,
+        "cache_hit_rate": 0.7157174453967377,
+        "estimated_cost_usd": 0.0030485,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1,
+        "ensure_refund_workflow": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 4,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 11.181906100013293,
+        "llm_requests": 4,
+        "tool_calls": 6,
+        "input_tokens": 29412,
+        "cached_input_tokens": 21235,
+        "cache_write_input_tokens": 8165,
+        "output_tokens": 470,
+        "reasoning_tokens": 0,
+        "total_tokens": 29882,
+        "cache_hit_rate": 0.721984224126207,
+        "estimated_cost_usd": 0.00303235,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "ensure_refund_workflow": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 5,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "model": "gpt-5.6-luna",
+        "latency_seconds": 9.975697400048375,
+        "llm_requests": 4,
+        "tool_calls": 6,
+        "input_tokens": 28893,
+        "cached_input_tokens": 20687,
+        "cache_write_input_tokens": 8194,
+        "output_tokens": 490,
+        "reasoning_tokens": 0,
+        "total_tokens": 29383,
+        "cache_hit_rate": 0.7159865711417991,
+        "estimated_cost_usd": 0.0030526399999999997,
+        "pricing_as_of": "2026-10-07"
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1,
+        "ensure_refund_workflow": 1
+      }
+    }
+  ]
+}

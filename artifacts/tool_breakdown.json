@@ -1,0 +1,353 @@
+{
+  "mode": "persistent_mcp",
+  "mcp_startup_seconds": 38.4641117999563,
+  "runs_per_scenario": 3,
+  "summaries": [
+    {
+      "scenario": "plumbing_worsening_leak",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 14.024530066681715,
+      "avg_llm_requests": 5.0,
+      "avg_tool_calls": 8.666666666666666,
+      "avg_input_tokens": 40544.0,
+      "avg_output_tokens": 445.6666666666667,
+      "cache_hit_rate": 0.7742617074454091,
+      "avg_cache_write_tokens": 9137.333333333334,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 3,
+        "ensure_operational_case": 3,
+        "ensure_operations_task": 3,
+        "lookup_guest": 3,
+        "lookup_operational_playbook": 3,
+        "lookup_reservation": 3,
+        "update_case_workflow_status": 3,
+        "qdrant-find": 2,
+        "lookup_open_cases_for_booking": 1,
+        "lookup_open_incidents": 1,
+        "lookup_property": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 11.049386399992121,
+      "avg_llm_requests": 4.333333333333333,
+      "avg_tool_calls": 7.666666666666667,
+      "avg_input_tokens": 29119.0,
+      "avg_output_tokens": 429.3333333333333,
+      "cache_hit_rate": 0.7432031777648042,
+      "avg_cache_write_tokens": 7464.666666666667,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 3,
+        "ensure_operational_case": 3,
+        "ensure_operations_task": 3,
+        "lookup_guest": 3,
+        "lookup_operational_playbook": 3,
+        "lookup_reservation": 3,
+        "update_case_workflow_status": 3,
+        "lookup_open_cases_for_booking": 2
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 13.544515466627976,
+      "avg_llm_requests": 5.666666666666667,
+      "avg_tool_calls": 9.666666666666666,
+      "avg_input_tokens": 47630.0,
+      "avg_output_tokens": 544.6666666666666,
+      "cache_hit_rate": 0.7973476100496886,
+      "avg_cache_write_tokens": 9635.333333333334,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 4,
+        "ensure_operational_case": 3,
+        "ensure_operations_task": 3,
+        "ensure_refund_workflow": 3,
+        "lookup_guest": 3,
+        "lookup_operational_playbook": 3,
+        "lookup_reservation": 3,
+        "update_case_workflow_status": 3,
+        "lookup_open_cases_for_booking": 1,
+        "lookup_open_incidents": 1,
+        "lookup_property": 1,
+        "qdrant-find": 1
+      }
+    }
+  ],
+  "overall_tool_call_breakdown": {
+    "ensure_human_escalation": 10,
+    "ensure_operational_case": 9,
+    "ensure_operations_task": 9,
+    "lookup_guest": 9,
+    "lookup_operational_playbook": 9,
+    "lookup_reservation": 9,
+    "update_case_workflow_status": 9,
+    "lookup_open_cases_for_booking": 4,
+    "ensure_refund_workflow": 3,
+    "qdrant-find": 3,
+    "lookup_open_incidents": 2,
+    "lookup_property": 2
+  },
+  "runs": [
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 15.425997100071982,
+        "llm_requests": 5,
+        "tool_calls": 8,
+        "input_tokens": 34376,
+        "cached_input_tokens": 26799,
+        "cache_write_input_tokens": 7562,
+        "output_tokens": 423,
+        "reasoning_tokens": 0,
+        "total_tokens": 34799,
+        "cache_hit_rate": 0.7795845939027228
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "lookup_open_cases_for_booking": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 14.11993829999119,
+        "llm_requests": 5,
+        "tool_calls": 10,
+        "input_tokens": 35470,
+        "cached_input_tokens": 27530,
+        "cache_write_input_tokens": 7925,
+        "output_tokens": 483,
+        "reasoning_tokens": 0,
+        "total_tokens": 35953,
+        "cache_hit_rate": 0.7761488581900198
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "qdrant-find": 1,
+        "ensure_operational_case": 1,
+        "lookup_property": 1,
+        "lookup_open_incidents": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 12.527654799981974,
+        "llm_requests": 5,
+        "tool_calls": 8,
+        "input_tokens": 51786,
+        "cached_input_tokens": 39846,
+        "cache_write_input_tokens": 11925,
+        "output_tokens": 431,
+        "reasoning_tokens": 0,
+        "total_tokens": 52217,
+        "cache_hit_rate": 0.7694357548372147
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "qdrant-find": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 11.651223700027913,
+        "llm_requests": 4,
+        "tool_calls": 8,
+        "input_tokens": 26757,
+        "cached_input_tokens": 19268,
+        "cache_write_input_tokens": 7477,
+        "output_tokens": 449,
+        "reasoning_tokens": 0,
+        "total_tokens": 27206,
+        "cache_hit_rate": 0.7201106252569421
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "lookup_open_cases_for_booking": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 11.596210499992594,
+        "llm_requests": 5,
+        "tool_calls": 7,
+        "input_tokens": 33832,
+        "cached_input_tokens": 26387,
+        "cache_write_input_tokens": 7430,
+        "output_tokens": 414,
+        "reasoning_tokens": 0,
+        "total_tokens": 34246,
+        "cache_hit_rate": 0.7799420666824308
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 9.900724999955855,
+        "llm_requests": 4,
+        "tool_calls": 8,
+        "input_tokens": 26768,
+        "cached_input_tokens": 19269,
+        "cache_write_input_tokens": 7487,
+        "output_tokens": 425,
+        "reasoning_tokens": 0,
+        "total_tokens": 27193,
+        "cache_hit_rate": 0.7198520621637776
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "lookup_open_cases_for_booking": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 13.025845799944364,
+        "llm_requests": 5,
+        "tool_calls": 8,
+        "input_tokens": 34941,
+        "cached_input_tokens": 26946,
+        "cache_write_input_tokens": 7980,
+        "output_tokens": 455,
+        "reasoning_tokens": 0,
+        "total_tokens": 35396,
+        "cache_hit_rate": 0.7711857130591568
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "ensure_refund_workflow": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 12.289164099958725,
+        "llm_requests": 6,
+        "tool_calls": 9,
+        "input_tokens": 42164,
+        "cached_input_tokens": 34087,
+        "cache_write_input_tokens": 8059,
+        "output_tokens": 525,
+        "reasoning_tokens": 0,
+        "total_tokens": 42689,
+        "cache_hit_rate": 0.8084384783227397
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "lookup_open_cases_for_booking": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1,
+        "ensure_refund_workflow": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 15.318536499980837,
+        "llm_requests": 6,
+        "tool_calls": 12,
+        "input_tokens": 65785,
+        "cached_input_tokens": 52900,
+        "cache_write_input_tokens": 12867,
+        "output_tokens": 654,
+        "reasoning_tokens": 0,
+        "total_tokens": 66439,
+        "cache_hit_rate": 0.8041346811583188
+      },
+      "tool_call_breakdown": {
+        "lookup_reservation": 1,
+        "lookup_guest": 1,
+        "lookup_operational_playbook": 1,
+        "qdrant-find": 1,
+        "ensure_operational_case": 1,
+        "lookup_property": 1,
+        "lookup_open_incidents": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 2,
+        "ensure_refund_workflow": 1,
+        "update_case_workflow_status": 1
+      }
+    }
+  ]
+}
