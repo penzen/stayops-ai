@@ -53,7 +53,7 @@ function OperationsIcon() {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Overview", description: "Operational snapshot", icon: <GridIcon /> },
-  { href: "/", label: "Guest Ops", description: "AI guest workspace", icon: <ChatIcon />, exact: true },
+  { href: "/guest-ops", label: "Guest Ops", description: "AI guest workspace", icon: <ChatIcon />, exact: true },
   { href: "/guests", label: "Guests", description: "Guest directory", icon: <GuestsIcon /> },
   { href: "/operations", label: "Operations", description: "Human handoffs", icon: <OperationsIcon /> },
 ];
@@ -158,6 +158,10 @@ function Brand() {
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+
+  if (pathname === "/") {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">
