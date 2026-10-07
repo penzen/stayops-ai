@@ -38,6 +38,7 @@ def test_collect_run_metrics_reads_sdk_usage_details():
     metrics = collect_run_metrics(
         result=result,
         latency_seconds=4.25,
+        model="gpt-5.6-luna",
     )
 
     assert metrics.latency_seconds == 4.25
@@ -49,3 +50,14 @@ def test_collect_run_metrics_reads_sdk_usage_details():
     assert metrics.cache_hit_rate == (
         8_000 / 12_000
     )
+    assert metrics.model == "gpt-5.6-luna"
+    assert metrics.estimated_cost_usd is not None
+
+    expected_cost = (
+        2_000 * 0.20
+        + 8_000 * 0.02
+        + 2_000 * 0.25
+        + 600 * 1.20
+    ) / 1_000_000
+
+    assert metrics.estimated_cost_usd == expected_cost

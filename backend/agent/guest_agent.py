@@ -7,7 +7,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from agents import Agent, Runner, trace
+from agents import Agent, ModelSettings, Runner, trace
+from openai.types.shared.reasoning import Reasoning
 from agents.mcp import MCPServer, MCPServerStdio
 
 from backend.agent.instructions import GUEST_AGENT_INSTRUCTIONS
@@ -31,6 +32,13 @@ def get_qdrant_path() -> Path:
 
 
 QDRANT_PATH = get_qdrant_path()
+
+# Explicitly pinned for reproducible StayOps evaluations.
+STAYOPS_AGENT_MODEL = "gpt-5.6-luna"
+STAYOPS_AGENT_MODEL_SETTINGS = ModelSettings(
+    reasoning=Reasoning(effort="none"),
+    verbosity="low",
+)
 
 
 def create_operations_mcp_server(
@@ -233,6 +241,8 @@ async def run_guest_agent(
             agent = Agent(
                 name="StayOps Guest Operations Agent",
                 instructions=GUEST_AGENT_INSTRUCTIONS,
+                model=STAYOPS_AGENT_MODEL,
+                model_settings=STAYOPS_AGENT_MODEL_SETTINGS,
                 mcp_servers=[
                     operations_server,
                     knowledge_server,

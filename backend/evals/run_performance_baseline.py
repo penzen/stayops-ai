@@ -12,6 +12,7 @@ from pathlib import Path
 from agents.mcp import MCPServer, MCPServerManager
 
 from backend.agent.guest_agent import (
+    STAYOPS_AGENT_MODEL,
     create_knowledge_mcp_server,
     create_operations_mcp_server,
     run_guest_agent,
@@ -19,7 +20,10 @@ from backend.agent.guest_agent import (
 from backend.domain.enums import SenderType
 from backend.evals.run_evals import evaluate_scenario
 from backend.evals.scenarios import EVALUATION_SCENARIOS
-from backend.observability.llm_metrics import collect_run_metrics
+from backend.observability.llm_metrics import (
+    PRICING_AS_OF,
+    collect_run_metrics,
+)
 from backend.services.cases import (
     get_open_cases_for_booking,
     get_recent_cases_for_booking,
@@ -195,6 +199,16 @@ def summarize_scenario(
                 for run in runs
             ]
         ),
+        "avg_estimated_cost_usd": mean(
+            [
+                run["metrics"]["estimated_cost_usd"]
+                for run in runs
+                if (
+                    run["metrics"]["estimated_cost_usd"]
+                    is not None
+                )
+            ]
+        ),
         "tool_call_breakdown": combine_tool_breakdowns(
             runs
         ),
@@ -250,6 +264,12 @@ def print_summary(
         "Quality gate: deterministic StayOps scenario checks. "
         "The existing full eval suite remains unchanged."
     )
+    print(f"Agent model: {STAYOPS_AGENT_MODEL}")
+    print(
+        "Cost estimate: standard short-context text-token "
+        f"pricing as of {PRICING_AS_OF}; excludes "
+        "infrastructure and LLM-judge costs."
+    )
     print()
 
     header = (
@@ -263,6 +283,7 @@ def print_summary(
         f"{'Out tok':>10}"
         f"{'Cache':>9}"
         f"{'Writes':>11}"
+        f"{'Cost':>12}"
     )
     print(header)
     print("-" * len(header))
@@ -279,6 +300,7 @@ def print_summary(
             f"{summary['avg_output_tokens']:>10.0f}"
             f"{summary['cache_hit_rate']:>8.1%}"
             f"{summary['avg_cache_write_tokens']:>11.0f}"
+            f"${summary['avg_estimated_cost_usd']:>10.6f}"
         )
 
     print("\n" + "=" * 106)
@@ -378,6 +400,7 @@ async def run_benchmark(
                 metrics = collect_run_metrics(
                     result=result,
                     latency_seconds=latency_seconds,
+                    model=STAYOPS_AGENT_MODEL,
                 )
 
                 tool_names = [
@@ -409,6 +432,8 @@ async def run_benchmark(
 
         return {
             "mode": "persistent_mcp",
+            "agent_model": STAYOPS_AGENT_MODEL,
+            "pricing_as_of": PRICING_AS_OF,
             "mcp_startup_seconds": mcp_startup_seconds,
             "runs_per_scenario": runs_per_scenario,
             "summaries": summaries,
