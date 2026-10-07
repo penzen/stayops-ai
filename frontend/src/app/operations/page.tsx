@@ -1,7 +1,6 @@
 "use client";
 import Timeline from "./components/Timeline";
 import TaskPanel from "./components/TaskPanel";
-import Link from "next/link";
 import EscalationPanel from "./components/EscalationPanel";
 import QueueList from "./components/QueueList";
 import ConversationPanel from "./components/ConversationPanel";
@@ -885,60 +884,29 @@ useEffect(() => {
   return (
     <main className="min-h-screen bg-[#09090b] text-zinc-100">
 
-      {/* HEADER */}
-
-      <header className="border-b border-zinc-800 bg-[#09090b]">
-
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-bold text-zinc-950">
-              SO
-            </div>
-
-            <div>
-              <h1 className="font-semibold tracking-tight">
-                StayOps Operations
-              </h1>
-
-              <p className="text-xs text-zinc-500">
-                Human intervention workspace
-              </p>
-            </div>
-
-          </div>
-
-
-          <div className="flex items-center gap-3">
-
-            <Link
-              href="/"
-              className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:border-blue-400/50 hover:bg-blue-500/20 hover:text-blue-200"
-            >
-              Guest Demo
-            </Link>
-
-            <button
-              onClick={() =>
-                void loadQueue()
-              }
-              disabled={isLoading}
-              className="rounded-lg bg-white px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50"
-            >
-              {isLoading
-                ? "Refreshing..."
-                : "Refresh"}
-            </button>
-
-          </div>
-
-        </div>
-
-      </header>
-
-
       <div className="mx-auto max-w-[1500px] px-6 py-6">
+
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-300">
+              Operations
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+              Human intervention workspace
+            </h1>
+            <p className="mt-2 text-sm text-zinc-500">
+              Claim Cases, coordinate technicians and make bounded human decisions.
+            </p>
+          </div>
+
+          <button
+            onClick={() => void loadQueue()}
+            disabled={isLoading}
+            className="rounded-lg bg-white px-4 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50"
+          >
+            {isLoading ? "Refreshing..." : "Refresh queue"}
+          </button>
+        </div>
 
         {/* SUMMARY */}
 

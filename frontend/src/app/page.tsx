@@ -629,84 +629,6 @@ useEffect(() => {
   return (
     <main className="min-h-screen bg-[#09090b] text-zinc-100">
 
-      {/* HEADER */}
-
-      <header className="sticky top-0 z-20 border-b border-zinc-800/80 bg-[#09090b]/95 backdrop-blur">
-
-        <div className="mx-auto flex max-w-[1450px] items-center justify-between px-6 py-4">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-bold text-zinc-950">
-              SO
-            </div>
-
-            <div>
-              <div className="flex items-center gap-2">
-
-                <h1 className="text-lg font-semibold tracking-tight">
-                  StayOps AI
-                </h1>
-
-                <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-violet-300">
-                  Demo
-                </span>
-
-              </div>
-
-              <p className="text-xs text-zinc-500">
-                Autonomous Guest Operations
-              </p>
-            </div>
-
-          </div>
-
-          
-
-
-          <div className="flex items-center gap-3">
-
-            <a
-              href="/operations"
-              className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-4 py-2 text-xs font-semibold text-violet-300 transition hover:border-violet-400/50 hover:bg-violet-500/20 hover:text-violet-200"
-            >
-              Operations
-            </a>
-
-            <button
-              onClick={() =>
-                void resetDemo()
-              }
-
-              disabled={
-                isResetting ||
-                isLoading ||
-                !selectedStay
-              }
-
-              className="rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-xs font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isResetting
-                ? "Resetting..."
-                : "Reset Demo"}
-            </button>
-
-
-            <div className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-400">
-
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" />
-
-              System online
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </header>
-
-
       {/* PAGE */}
 
       <div className="mx-auto max-w-[1450px] px-6 py-6">
@@ -788,9 +710,19 @@ useEffect(() => {
           </div>
 
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
 
-            <div className="min-w-[110px] rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3">
+            <button
+              onClick={() => void resetDemo()}
+              disabled={isResetting || isLoading || !selectedStay}
+              className="rounded-lg border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-xs font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isResetting ? "Resetting..." : "Reset Demo"}
+            </button>
+
+            <div className="grid grid-cols-3 gap-3">
+
+            <div className="min-w-[100px] rounded-xl border border-zinc-800 bg-zinc-950/70 px-4 py-3">
 
               <p className="text-[11px] uppercase tracking-wider text-zinc-600">
                 Tasks
@@ -829,6 +761,8 @@ useEffect(() => {
                   activities.length
                 }
               </p>
+
+            </div>
 
             </div>
 
