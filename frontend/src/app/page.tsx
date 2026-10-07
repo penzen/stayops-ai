@@ -153,15 +153,18 @@ export default function LandingPage() {
                   </div>
                 </Link>
 
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5">
+                <Link
+                  href="/create-demo"
+                  className="group block rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 transition hover:border-zinc-700 hover:bg-zinc-900/70"
+                >
                   <div className="flex items-start justify-between gap-5">
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold text-zinc-300">
                           Create a fictional guest
                         </h3>
-                        <span className="rounded-full border border-zinc-700 bg-zinc-800 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-zinc-500">
-                          Next
+                        <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-300">
+                          Create
                         </span>
                       </div>
 
@@ -171,15 +174,11 @@ export default function LandingPage() {
                       </p>
                     </div>
 
-                    <span className="mt-1 text-zinc-700">
+                    <span className="mt-1 text-zinc-500 transition group-hover:translate-x-1 group-hover:text-zinc-300">
                       <ArrowIcon />
                     </span>
                   </div>
-
-                  <p className="mt-4 border-t border-zinc-800 pt-3 text-[11px] text-zinc-700">
-                    Custom guest creation is enabled in the next V5 milestone.
-                  </p>
-                </div>
+                </Link>
               </div>
 
               <div className="mt-5 rounded-xl border border-zinc-800/80 bg-zinc-950/60 px-4 py-3">

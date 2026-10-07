@@ -10,6 +10,10 @@ from backend.services.demo import (
     reset_demo_state,
 )
 from backend.services.audit import get_case_timeline
+from backend.services.demo_guests import (
+    create_demo_guest_stay,
+    get_demo_properties,
+)
 
 from backend.api.schemas import (
     MessageCreate,
@@ -21,6 +25,7 @@ from backend.api.schemas import (
     CompensationDecisionCreate,
     CaseOperatorAction,
     TaskAssignmentAction,
+    DemoGuestStayCreate,
 )
 from backend.services.compensation import (
     get_compensation_evidence,
@@ -694,6 +699,34 @@ async def agent_chat(payload: AgentChatRequest):
 @app.get("/demo/stays")
 def read_demo_stays():
     return get_demo_stays()
+
+
+@app.get("/demo/properties")
+def read_demo_properties():
+    return get_demo_properties()
+
+
+@app.post(
+    "/demo/stays",
+    status_code=201,
+)
+def create_demo_stay(
+    payload: DemoGuestStayCreate,
+):
+    try:
+        return create_demo_guest_stay(
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            email=payload.email,
+            guest_lang=payload.guest_lang,
+            property_id=payload.property_id,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
 
 
 @app.post("/demo/reset/{booking_id}")

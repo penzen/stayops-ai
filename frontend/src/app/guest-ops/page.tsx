@@ -222,6 +222,20 @@ export default function Home() {
         setDemoStays(stays);
 
         if (stays.length > 0) {
+          const requestedBookingId =
+            window.localStorage.getItem(
+              "stayops:selectedBookingId"
+            );
+
+          const requestedStay =
+            requestedBookingId
+              ? stays.find(
+                  (stay) =>
+                    stay.booking_id ===
+                    requestedBookingId
+                )
+              : undefined;
+
           const englishStay =
             stays.find(
               (stay) =>
@@ -230,6 +244,7 @@ export default function Home() {
             );
 
           const defaultStay =
+            requestedStay ??
             englishStay ??
             stays[0];
 
@@ -238,6 +253,12 @@ export default function Home() {
               current ||
               defaultStay.booking_id
           );
+
+          if (requestedStay) {
+            window.localStorage.removeItem(
+              "stayops:selectedBookingId"
+            );
+          }
         }
       } catch (error) {
         console.error(

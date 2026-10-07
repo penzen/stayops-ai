@@ -159,7 +159,10 @@ function Brand() {
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname === "/") {
+  if (
+    pathname === "/" ||
+    pathname === "/create-demo"
+  ) {
     return <>{children}</>;
   }
 
