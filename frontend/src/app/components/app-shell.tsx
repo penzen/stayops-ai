@@ -32,6 +32,15 @@ function ChatIcon() {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-4 w-4" aria-hidden="true">
+      <circle cx="10.8" cy="10.8" r="6.3" />
+      <path d="m15.5 15.5 4.3 4.3" />
+    </svg>
+  );
+}
+
 function GuestsIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-4 w-4" aria-hidden="true">
@@ -55,6 +64,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Overview", description: "Operational snapshot", icon: <GridIcon /> },
   { href: "/guest-ops", label: "Guest Ops", description: "AI guest workspace", icon: <ChatIcon />, exact: true },
   { href: "/guests", label: "Guests", description: "Guest directory", icon: <GuestsIcon /> },
+  { href: "/search", label: "Search", description: "Guests, stays & Cases", icon: <SearchIcon /> },
   { href: "/operations", label: "Operations", description: "Human handoffs", icon: <OperationsIcon /> },
 ];
 

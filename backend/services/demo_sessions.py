@@ -1746,3 +1746,313 @@ def get_demo_session_guest_detail(
     finally:
         connection.close()
 
+def search_demo_session(
+    *,
+    session_id: str,
+    query: str,
+    limit: int = 20,
+):
+    query = query.strip()
+
+    if len(query) < 2:
+        return {
+            "query": query,
+            "total": 0,
+            "guests": [],
+            "bookings": [],
+            "cases": [],
+        }
+
+    limit = max(
+        1,
+        min(
+            int(limit),
+            50,
+        ),
+    )
+
+    connection = get_connection()
+
+    try:
+        ensure_demo_session_schema(
+            connection
+        )
+        assert_demo_session_exists(
+            session_id,
+            connection=connection,
+        )
+
+        pattern = (
+            f"%{query.lower()}%"
+        )
+        per_group_limit = min(
+            limit,
+            10,
+        )
+
+        guest_rows = connection.execute(
+            """
+            SELECT
+                g.guest_id,
+                g.first_name,
+                g.last_name,
+                g.email,
+                g.guest_lang,
+                g.locale,
+
+                b.booking_id,
+                b.property_id,
+                b.book_status,
+
+                p.title AS property_title,
+                p.city,
+
+                dsb.resource_kind
+
+            FROM demo_session_bookings AS dsb
+
+            JOIN bookings AS b
+              ON b.booking_id = dsb.booking_id
+
+            JOIN guests AS g
+              ON g.guest_id = b.guest_id
+
+            JOIN properties AS p
+              ON p.property_id = b.property_id
+
+            WHERE dsb.session_id = ?
+              AND (
+                    LOWER(
+                        g.first_name
+                        || ' '
+                        || g.last_name
+                    ) LIKE ?
+                 OR LOWER(
+                        COALESCE(
+                            g.email,
+                            ''
+                        )
+                    ) LIKE ?
+                 OR LOWER(
+                        g.guest_id
+                    ) LIKE ?
+              )
+
+            ORDER BY
+                CASE
+                    WHEN LOWER(
+                        g.guest_id
+                    ) = LOWER(?)
+                    THEN 0
+                    ELSE 1
+                END,
+                g.first_name,
+                g.last_name
+
+            LIMIT ?
+            """,
+            (
+                session_id,
+                pattern,
+                pattern,
+                pattern,
+                query,
+                per_group_limit,
+            ),
+        ).fetchall()
+
+        booking_rows = connection.execute(
+            """
+            SELECT
+                b.booking_id,
+                b.guest_id,
+                b.property_id,
+                b.check_in,
+                b.check_out,
+                b.book_status,
+
+                g.first_name,
+                g.last_name,
+
+                p.title AS property_title,
+                p.city,
+
+                dsb.resource_kind
+
+            FROM demo_session_bookings AS dsb
+
+            JOIN bookings AS b
+              ON b.booking_id = dsb.booking_id
+
+            JOIN guests AS g
+              ON g.guest_id = b.guest_id
+
+            JOIN properties AS p
+              ON p.property_id = b.property_id
+
+            WHERE dsb.session_id = ?
+              AND (
+                    LOWER(
+                        b.booking_id
+                    ) LIKE ?
+                 OR LOWER(
+                        p.title
+                    ) LIKE ?
+                 OR LOWER(
+                        COALESCE(
+                            p.city,
+                            ''
+                        )
+                    ) LIKE ?
+                 OR LOWER(
+                        g.first_name
+                        || ' '
+                        || g.last_name
+                    ) LIKE ?
+              )
+
+            ORDER BY
+                CASE
+                    WHEN LOWER(
+                        b.booking_id
+                    ) = LOWER(?)
+                    THEN 0
+                    ELSE 1
+                END,
+                b.check_in DESC
+
+            LIMIT ?
+            """,
+            (
+                session_id,
+                pattern,
+                pattern,
+                pattern,
+                pattern,
+                query,
+                per_group_limit,
+            ),
+        ).fetchall()
+
+        case_rows = connection.execute(
+            """
+            SELECT
+                c.case_id,
+                c.booking_id,
+                c.property_id,
+                c.category,
+                c.status,
+                c.summary,
+                c.assigned_to,
+                c.created_at,
+
+                g.guest_id,
+                g.first_name,
+                g.last_name,
+
+                p.title AS property_title,
+
+                (
+                    SELECT e.priority
+                    FROM escalations AS e
+                    WHERE e.case_id = c.case_id
+                      AND e.status = 'open'
+                    ORDER BY e.created_at DESC
+                    LIMIT 1
+                ) AS priority
+
+            FROM cases AS c
+
+            JOIN demo_session_bookings AS dsb
+              ON dsb.booking_id = c.booking_id
+
+            JOIN bookings AS b
+              ON b.booking_id = c.booking_id
+
+            JOIN guests AS g
+              ON g.guest_id = b.guest_id
+
+            JOIN properties AS p
+              ON p.property_id = c.property_id
+
+            WHERE dsb.session_id = ?
+              AND (
+                    LOWER(
+                        c.case_id
+                    ) LIKE ?
+                 OR LOWER(
+                        c.category
+                    ) LIKE ?
+                 OR LOWER(
+                        c.status
+                    ) LIKE ?
+                 OR LOWER(
+                        COALESCE(
+                            c.summary,
+                            ''
+                        )
+                    ) LIKE ?
+                 OR LOWER(
+                        g.first_name
+                        || ' '
+                        || g.last_name
+                    ) LIKE ?
+                 OR LOWER(
+                        b.booking_id
+                    ) LIKE ?
+              )
+
+            ORDER BY
+                CASE
+                    WHEN c.status = 'waiting_human'
+                    THEN 0
+                    WHEN c.status = 'in_progress'
+                    THEN 1
+                    WHEN c.status = 'open'
+                    THEN 2
+                    ELSE 3
+                END,
+                c.created_at DESC
+
+            LIMIT ?
+            """,
+            (
+                session_id,
+                pattern,
+                pattern,
+                pattern,
+                pattern,
+                pattern,
+                pattern,
+                per_group_limit,
+            ),
+        ).fetchall()
+
+        guests = [
+            dict(row)
+            for row in guest_rows
+        ]
+        bookings = [
+            dict(row)
+            for row in booking_rows
+        ]
+        cases = [
+            dict(row)
+            for row in case_rows
+        ]
+
+        return {
+            "query": query,
+            "total": (
+                len(guests)
+                + len(bookings)
+                + len(cases)
+            ),
+            "guests": guests,
+            "bookings": bookings,
+            "cases": cases,
+        }
+
+    finally:
+        connection.close()
+

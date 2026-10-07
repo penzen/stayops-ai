@@ -32,6 +32,7 @@ from backend.services.demo_sessions import (
     require_demo_guest_access,
     require_demo_incident_access,
     require_demo_task_access,
+    search_demo_session,
     validate_demo_session,
 )
 
@@ -1176,6 +1177,21 @@ def read_public_demo_session_guest_detail(
             status_code=403,
             detail=str(exc),
         ) from exc
+
+
+@app.get("/demo/sessions/search")
+def search_public_demo_session(
+    q: str = "",
+    limit: int = 20,
+    session=Depends(
+        require_demo_session
+    ),
+):
+    return search_demo_session(
+        session_id=session["session_id"],
+        query=q,
+        limit=limit,
+    )
 
 
 @app.post(
