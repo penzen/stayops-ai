@@ -557,6 +557,26 @@ async def agent_chat(payload: AgentChatRequest):
         # LOAD EXISTING MULTI-TURN CONTEXT
         # -----------------------------------------------------
 
+        guest = get_guest(
+            payload.guest_id
+        )
+
+        reservation = get_reservation(
+            payload.booking_id
+        )
+
+        property_data = None
+
+        if reservation is not None:
+            property_id = reservation.get(
+                "property_id"
+            )
+
+            if property_id:
+                property_data = get_property(
+                    property_id
+                )
+
         open_cases = get_open_cases_for_booking(
             payload.booking_id
         )
@@ -595,6 +615,9 @@ async def agent_chat(payload: AgentChatRequest):
             recent_cases=recent_cases,
             recent_messages=recent_messages,
             mcp_servers=app.state.mcp_servers,
+            guest=guest,
+            reservation=reservation,
+            property_data=property_data,
         )
 
         # Persist the outgoing agent response deterministically.

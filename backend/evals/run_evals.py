@@ -19,6 +19,9 @@ from backend.services.messages import (
     send_message,
     get_booking_messages,
 )
+from backend.services.guests import get_guest
+from backend.services.reservations import get_reservation
+from backend.services.properties import get_property
 from backend.services.compensation import (
     record_compensation_decision,
 )
@@ -438,6 +441,17 @@ async def run_eval_turn(
     try:
         # Load context BEFORE storing the current guest message,
         # matching the production API behavior.
+        guest = get_guest(guest_id)
+        reservation = get_reservation(booking_id)
+
+        property_data = None
+
+        if reservation is not None:
+            property_id = reservation.get("property_id")
+
+            if property_id:
+                property_data = get_property(property_id)
+
         open_cases = get_open_cases_for_booking(
             booking_id
         )
@@ -467,6 +481,9 @@ async def run_eval_turn(
             open_cases=open_cases,
             recent_cases=recent_cases,
             recent_messages=recent_messages,
+            guest=guest,
+            reservation=reservation,
+            property_data=property_data,
         )
 
         send_message(

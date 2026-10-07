@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -92,10 +93,24 @@ def build_agent_request(
     open_cases_text: str,
     recent_cases_text: str,
     recent_messages_text: str,
+    guest_text: str = "Not preloaded",
+    reservation_text: str = "Not preloaded",
+    property_text: str = "Not preloaded",
 ) -> str:
     return f"""
         Guest ID: {guest_id}
         Booking ID: {booking_id}
+
+        PRELOADED OPERATIONAL CONTEXT
+
+        GUEST
+        {guest_text}
+
+        RESERVATION
+        {reservation_text}
+
+        PROPERTY
+        {property_text}
 
         OPEN OPERATIONAL CASES
 
@@ -126,6 +141,9 @@ async def run_guest_agent(
     recent_cases: list[dict] | None = None,
     recent_messages: list[dict] | None = None,
     mcp_servers: list[MCPServer] | None = None,
+    guest: dict | None = None,
+    reservation: dict | None = None,
+    property_data: dict | None = None,
 ):
     """
     Run the StayOps Guest Operations Agent for one guest message.
@@ -222,6 +240,40 @@ async def run_guest_agent(
             )
 
             # -------------------------------------------------
+            # PRELOADED DETERMINISTIC CONTEXT
+            # -------------------------------------------------
+
+            guest_text = (
+                json.dumps(
+                    guest,
+                    ensure_ascii=False,
+                    default=str,
+                )
+                if guest is not None
+                else "Not preloaded"
+            )
+
+            reservation_text = (
+                json.dumps(
+                    reservation,
+                    ensure_ascii=False,
+                    default=str,
+                )
+                if reservation is not None
+                else "Not preloaded"
+            )
+
+            property_text = (
+                json.dumps(
+                    property_data,
+                    ensure_ascii=False,
+                    default=str,
+                )
+                if property_data is not None
+                else "Not preloaded"
+            )
+
+            # -------------------------------------------------
             # OPEN CASE CONTEXT
             # -------------------------------------------------
 
@@ -307,6 +359,9 @@ async def run_guest_agent(
                     open_cases_text=open_cases_text,
                     recent_cases_text=recent_cases_text,
                     recent_messages_text=recent_messages_text,
+                    guest_text=guest_text,
+                    reservation_text=reservation_text,
+                    property_text=property_text,
                 )
 
             # -------------------------------------------------

@@ -6,6 +6,7 @@ import json
 import os
 import statistics
 import time
+from collections import Counter
 from pathlib import Path
 
 from agents.mcp import MCPServer, MCPServerManager
@@ -28,6 +29,9 @@ from backend.services.messages import (
     get_booking_messages,
     send_message,
 )
+from backend.services.guests import get_guest
+from backend.services.reservations import get_reservation
+from backend.services.properties import get_property
 
 
 def mean(values: list[float | int]) -> float:
@@ -43,22 +47,27 @@ async def run_persistent_eval_turn(
     db_path: Path,
     mcp_servers: list[MCPServer],
 ):
-    previous_db_path = os.environ.get(
-        "STAYOPS_DB_PATH"
-    )
+    previous_db_path = os.environ.get("STAYOPS_DB_PATH")
     os.environ["STAYOPS_DB_PATH"] = str(db_path)
 
     try:
-        open_cases = get_open_cases_for_booking(
-            booking_id
-        )
+        guest = get_guest(guest_id)
+        reservation = get_reservation(booking_id)
+
+        property_data = None
+
+        if reservation is not None:
+            property_id = reservation.get("property_id")
+
+            if property_id:
+                property_data = get_property(property_id)
+
+        open_cases = get_open_cases_for_booking(booking_id)
         recent_cases = get_recent_cases_for_booking(
             booking_id,
             limit=5,
         )
-        recent_messages = get_booking_messages(
-            booking_id
-        )[-6:]
+        recent_messages = get_booking_messages(booking_id)[-6:]
 
         send_message(
             booking_id=booking_id,
@@ -78,29 +87,43 @@ async def run_persistent_eval_turn(
             recent_cases=recent_cases,
             recent_messages=recent_messages,
             mcp_servers=mcp_servers,
+            guest=guest,
+            reservation=reservation,
+            property_data=property_data,
         )
 
         send_message(
             booking_id=booking_id,
             guest_id=guest_id,
             sender_type=SenderType.AGENT,
-            message_text=str(
-                result.final_output or ""
-            ),
+            message_text=str(result.final_output or ""),
         )
 
         return result
 
     finally:
         if previous_db_path is None:
-            os.environ.pop(
-                "STAYOPS_DB_PATH",
-                None,
-            )
+            os.environ.pop("STAYOPS_DB_PATH", None)
         else:
-            os.environ["STAYOPS_DB_PATH"] = (
-                previous_db_path
-            )
+            os.environ["STAYOPS_DB_PATH"] = previous_db_path
+
+
+def combine_tool_breakdowns(
+    runs: list[dict],
+) -> dict[str, int]:
+    counter: Counter[str] = Counter()
+
+    for run in runs:
+        counter.update(
+            run.get("tool_call_breakdown", {})
+        )
+
+    return dict(
+        sorted(
+            counter.items(),
+            key=lambda item: (-item[1], item[0]),
+        )
+    )
 
 
 def summarize_scenario(
@@ -172,12 +195,44 @@ def summarize_scenario(
                 for run in runs
             ]
         ),
+        "tool_call_breakdown": combine_tool_breakdowns(
+            runs
+        ),
     }
+
+
+def print_tool_breakdown(
+    *,
+    title: str,
+    breakdown: dict[str, int],
+    runs: int,
+) -> None:
+    print(f"\n{title}")
+
+    if not breakdown:
+        print("  No tool calls recorded.")
+        return
+
+    longest_name = max(len(name) for name in breakdown)
+
+    for tool_name, total_calls in breakdown.items():
+        avg_per_run = (
+            total_calls / runs
+            if runs
+            else 0.0
+        )
+
+        print(
+            f"  {tool_name:<{longest_name}}  "
+            f"{total_calls:>3} total  "
+            f"{avg_per_run:>5.2f}/run"
+        )
 
 
 def print_summary(
     summaries: list[dict],
     *,
+    raw_runs: list[dict],
     mcp_startup_seconds: float,
 ) -> None:
     print("\n" + "=" * 106)
@@ -225,6 +280,23 @@ def print_summary(
             f"{summary['cache_hit_rate']:>8.1%}"
             f"{summary['avg_cache_write_tokens']:>11.0f}"
         )
+
+    print("\n" + "=" * 106)
+    print("TOOL CALL BREAKDOWN")
+    print("=" * 106)
+
+    for summary in summaries:
+        print_tool_breakdown(
+            title=summary["scenario"],
+            breakdown=summary["tool_call_breakdown"],
+            runs=summary["runs"],
+        )
+
+    print_tool_breakdown(
+        title="OVERALL",
+        breakdown=combine_tool_breakdowns(raw_runs),
+        runs=len(raw_runs),
+    )
 
 
 async def run_benchmark(
@@ -308,12 +380,21 @@ async def run_benchmark(
                     latency_seconds=latency_seconds,
                 )
 
+                tool_names = [
+                    call["tool_name"]
+                    for call in evaluation["tool_calls"]
+                    if call.get("tool_name")
+                ]
+
                 run_record = {
                     "scenario": scenario["name"],
                     "run": run_number,
                     "passed": evaluation["passed"],
                     "failures": evaluation["failures"],
                     "metrics": metrics.to_dict(),
+                    "tool_call_breakdown": dict(
+                        Counter(tool_names)
+                    ),
                 }
 
                 scenario_runs.append(run_record)
@@ -328,11 +409,12 @@ async def run_benchmark(
 
         return {
             "mode": "persistent_mcp",
-            "mcp_startup_seconds": (
-                mcp_startup_seconds
-            ),
+            "mcp_startup_seconds": mcp_startup_seconds,
             "runs_per_scenario": runs_per_scenario,
             "summaries": summaries,
+            "overall_tool_call_breakdown": (
+                combine_tool_breakdowns(raw_runs)
+            ),
             "runs": raw_runs,
         }
 
@@ -340,7 +422,8 @@ async def run_benchmark(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Measure StayOps with long-lived MCP servers."
+            "Measure StayOps with long-lived MCP servers "
+            "and report tool-call frequency."
         )
     )
     parser.add_argument(
@@ -373,9 +456,10 @@ async def main() -> None:
 
     print_summary(
         benchmark["summaries"],
-        mcp_startup_seconds=(
-            benchmark["mcp_startup_seconds"]
-        ),
+        raw_runs=benchmark["runs"],
+        mcp_startup_seconds=benchmark[
+            "mcp_startup_seconds"
+        ],
     )
 
     if args.output is not None:
