@@ -3,20 +3,36 @@ import uuid
 from .db import get_connection
 from backend.domain.enums import CaseStatus, Priority
 
-def get_open_incidents(property_id: str):
+def get_open_incidents(
+    property_id: str,
+    booking_id: str | None = None,
+):
     connection = get_connection()
 
     try:
-        rows = connection.execute(
-            """
-            SELECT *
-            FROM incidents
-            WHERE property_id = ?
-            AND status = 'open'
-            ORDER BY created_at DESC
-            """,
-            (property_id,),
-        ).fetchall()
+        if booking_id is None:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM incidents
+                WHERE property_id = ?
+                  AND status = 'open'
+                ORDER BY created_at DESC
+                """,
+                (property_id,),
+            ).fetchall()
+        else:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM incidents
+                WHERE property_id = ?
+                  AND booking_id = ?
+                  AND status = 'open'
+                ORDER BY created_at DESC
+                """,
+                (property_id, booking_id),
+            ).fetchall()
 
         return [dict(row) for row in rows]
 

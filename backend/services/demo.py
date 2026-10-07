@@ -94,10 +94,14 @@ def reset_demo_state(
     is_custom_demo = booking_id.startswith(
         "book_demo_custom_"
     )
+    is_session_demo = booking_id.startswith(
+        "book_demo_session_"
+    )
 
     if (
         not is_seeded_demo
         and not is_custom_demo
+        and not is_session_demo
     ):
         raise ValueError(
             "Booking is not a valid demo booking."

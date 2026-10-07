@@ -1,6 +1,7 @@
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from agents.mcp import MCPServerManager
 from backend.services.access_rules import verify_guest_access
 from backend.domain.enums import SenderType
@@ -13,6 +14,22 @@ from backend.services.audit import get_case_timeline
 from backend.services.demo_guests import (
     create_demo_guest_stay,
     get_demo_properties,
+)
+from backend.services.demo_sessions import (
+    DemoSessionAccessDenied,
+    DemoSessionExpired,
+    DemoSessionUnauthorized,
+    create_demo_session,
+    get_demo_session_booking_ids,
+    get_demo_session_stays,
+    require_demo_booking_access,
+    require_demo_case_access,
+    require_demo_compensation_access,
+    require_demo_escalation_access,
+    require_demo_guest_access,
+    require_demo_incident_access,
+    require_demo_task_access,
+    validate_demo_session,
 )
 
 from backend.api.schemas import (
@@ -125,6 +142,269 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------
+# DEMO SESSION AUTH
+# ---------------------------------------------------------
+
+def require_demo_session(
+    x_stayops_demo_token: str | None = Header(
+        default=None,
+        alias="X-StayOps-Demo-Token",
+    ),
+):
+    if x_stayops_demo_token is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Demo session token is required.",
+        )
+
+    try:
+        return validate_demo_session(
+            x_stayops_demo_token
+        )
+
+    except DemoSessionExpired as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=str(exc),
+        ) from exc
+
+    except DemoSessionUnauthorized as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=str(exc),
+        ) from exc
+
+
+def require_demo_api_session(
+    x_stayops_demo_token: str | None = Header(
+        default=None,
+        alias="X-StayOps-Demo-Token",
+    ),
+):
+    if x_stayops_demo_token:
+        return require_demo_session(
+            x_stayops_demo_token
+        )
+
+    if os.getenv("STAYOPS_ALLOW_LEGACY_DEMO") == "1":
+        return {
+            "session_id": None,
+            "legacy": True,
+        }
+
+    raise HTTPException(
+        status_code=401,
+        detail="Demo session token is required.",
+    )
+
+
+def require_legacy_demo_mode():
+    if os.getenv("STAYOPS_ALLOW_LEGACY_DEMO") != "1":
+        raise HTTPException(
+            status_code=404,
+            detail="Not found.",
+        )
+
+
+def _is_legacy_session(session: dict) -> bool:
+    return bool(session.get("legacy"))
+
+
+def _deny(exc: DemoSessionAccessDenied):
+    raise HTTPException(
+        status_code=403,
+        detail=str(exc),
+    ) from exc
+
+
+def _authorize_booking(session: dict, booking_id: str):
+    if _is_legacy_session(session):
+        return
+    try:
+        require_demo_booking_access(
+            session_id=session["session_id"],
+            booking_id=booking_id,
+        )
+    except DemoSessionAccessDenied as exc:
+        _deny(exc)
+
+
+def _authorize_guest(session: dict, guest_id: str):
+    if _is_legacy_session(session):
+        return
+    try:
+        require_demo_guest_access(
+            session_id=session["session_id"],
+            guest_id=guest_id,
+        )
+    except DemoSessionAccessDenied as exc:
+        _deny(exc)
+
+
+def _authorize_case(session: dict, case_id: str):
+    if _is_legacy_session(session):
+        return
+    try:
+        require_demo_case_access(
+            session_id=session["session_id"],
+            case_id=case_id,
+        )
+    except DemoSessionAccessDenied as exc:
+        _deny(exc)
+
+
+def _authorize_task(session: dict, task_id: str):
+    if _is_legacy_session(session):
+        return
+    try:
+        require_demo_task_access(
+            session_id=session["session_id"],
+            task_id=task_id,
+        )
+    except DemoSessionAccessDenied as exc:
+        _deny(exc)
+
+
+def _authorize_escalation(session: dict, escalation_id: str):
+    if _is_legacy_session(session):
+        return
+    try:
+        require_demo_escalation_access(
+            session_id=session["session_id"],
+            escalation_id=escalation_id,
+        )
+    except DemoSessionAccessDenied as exc:
+        _deny(exc)
+
+
+def _authorize_compensation(session: dict, compensation_request_id: str):
+    if _is_legacy_session(session):
+        return
+    try:
+        require_demo_compensation_access(
+            session_id=session["session_id"],
+            compensation_request_id=compensation_request_id,
+        )
+    except DemoSessionAccessDenied as exc:
+        _deny(exc)
+
+
+def _authorize_incident(session: dict, incident_id: str):
+    if _is_legacy_session(session):
+        return
+    try:
+        require_demo_incident_access(
+            session_id=session["session_id"],
+            incident_id=incident_id,
+        )
+    except DemoSessionAccessDenied as exc:
+        _deny(exc)
+
+
+def _authorize_booking_and_guest(
+    session: dict,
+    *,
+    booking_id: str,
+    guest_id: str,
+):
+    _authorize_booking(session, booking_id)
+    _authorize_guest(session, guest_id)
+
+    reservation = get_reservation(booking_id)
+
+    if reservation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Reservation not found.",
+        )
+
+    if reservation["guest_id"] != guest_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Guest does not belong to the supplied booking.",
+        )
+
+
+def _authorize_optional_booking(session: dict, booking_id: str | None):
+    if _is_legacy_session(session):
+        return
+
+    if booking_id is None:
+        raise HTTPException(
+            status_code=403,
+            detail="A session-owned booking is required.",
+        )
+
+    _authorize_booking(session, booking_id)
+
+
+def _session_booking_ids(session: dict):
+    if _is_legacy_session(session):
+        return None
+    return set(
+        get_demo_session_booking_ids(
+            session["session_id"]
+        )
+    )
+
+
+def require_demo_booking_scope(
+    booking_id: str,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_booking(session, booking_id)
+    return session
+
+
+def require_demo_guest_scope(
+    guest_id: str,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_guest(session, guest_id)
+    return session
+
+
+def require_demo_case_scope(
+    case_id: str,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_case(session, case_id)
+    return session
+
+
+def require_demo_task_scope(
+    task_id: str,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_task(session, task_id)
+    return session
+
+
+def require_demo_escalation_scope(
+    escalation_id: str,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_escalation(session, escalation_id)
+    return session
+
+
+def require_demo_compensation_scope(
+    compensation_request_id: str,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_compensation(session, compensation_request_id)
+    return session
+
+
+def require_demo_incident_scope(
+    incident_id: str,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_incident(session, incident_id)
+    return session
+
+
+# ---------------------------------------------------------
 # HEALTH
 # ---------------------------------------------------------
 
@@ -141,7 +421,10 @@ def health():
 # ---------------------------------------------------------
 
 @app.get("/guests/{guest_id}")
-def read_guest(guest_id: str):
+def read_guest(
+    guest_id: str,
+    _session=Depends(require_demo_guest_scope),
+):
     guest = get_guest(guest_id)
 
     if guest is None:
@@ -154,7 +437,10 @@ def read_guest(guest_id: str):
 
 
 @app.get("/guests/{guest_id}/reservations")
-def read_guest_reservations(guest_id: str):
+def read_guest_reservations(
+    guest_id: str,
+    _session=Depends(require_demo_guest_scope),
+):
     return get_guest_reservations(guest_id)
 
 
@@ -163,7 +449,10 @@ def read_guest_reservations(guest_id: str):
 # ---------------------------------------------------------
 
 @app.get("/reservations/{booking_id}")
-def read_reservation(booking_id: str):
+def read_reservation(
+    booking_id: str,
+    _session=Depends(require_demo_booking_scope),
+):
     reservation = get_reservation(booking_id)
 
     if reservation is None:
@@ -181,8 +470,17 @@ def read_reservation(booking_id: str):
 # ---------------------------------------------------------
 
 @app.get("/operations/queue")
-def read_human_operations_queue():
-    return get_human_operations_queue()
+def read_human_operations_queue(
+    session=Depends(require_demo_api_session),
+):
+    queue = get_human_operations_queue()
+    allowed = _session_booking_ids(session)
+    if allowed is None:
+        return queue
+    return [
+        entry for entry in queue
+        if entry["case"]["booking_id"] in allowed
+    ]
 
 
 @app.get("/operations/technicians")
@@ -195,6 +493,7 @@ def read_maintenance_technicians():
 def claim_case_for_operator(
     case_id: str,
     payload: CaseOperatorAction,
+    _session=Depends(require_demo_case_scope),
 ):
     try:
         return claim_case(
@@ -221,6 +520,7 @@ def claim_case_for_operator(
 def return_case_to_agent_endpoint(
     case_id: str,
     payload: CaseOperatorAction,
+    _session=Depends(require_demo_case_scope),
 ):
     try:
         return return_case_to_agent(
@@ -246,7 +546,10 @@ def return_case_to_agent_endpoint(
 # ---------------------------------------------------------
 
 @app.get("/cases/{case_id}")
-def read_case(case_id: str):
+def read_case(
+    case_id: str,
+    _session=Depends(require_demo_case_scope),
+):
     case = get_case(case_id)
 
     if case is None:
@@ -258,7 +561,10 @@ def read_case(case_id: str):
     return case
 
 @app.get("/cases/{case_id}/timeline")
-def read_case_timeline(case_id: str):
+def read_case_timeline(
+    case_id: str,
+    _session=Depends(require_demo_case_scope),
+):
     try:
         return get_case_timeline(case_id)
 
@@ -269,7 +575,10 @@ def read_case_timeline(case_id: str):
         )
 
 @app.get("/reservations/{booking_id}/cases")
-def read_booking_cases(booking_id: str):
+def read_booking_cases(
+    booking_id: str,
+    _session=Depends(require_demo_booking_scope),
+):
     return get_open_cases_for_booking(booking_id)
 
 # ---------------------------------------------------------
@@ -303,13 +612,35 @@ def read_access_system(property_id: str):
 
 
 @app.get("/properties/{property_id}/incidents")
-def read_open_incidents(property_id: str):
-    return get_open_incidents(property_id)
+def read_open_incidents(
+    property_id: str,
+    session=Depends(require_demo_api_session),
+):
+    incidents = get_open_incidents(property_id)
+    allowed = _session_booking_ids(session)
+    if allowed is None:
+        return incidents
+    return [
+        item
+        for item in incidents
+        if item["booking_id"] in allowed
+    ]
 
 
 @app.get("/properties/{property_id}/tasks")
-def read_open_tasks(property_id: str):
-    return get_open_tasks(property_id)
+def read_open_tasks(
+    property_id: str,
+    session=Depends(require_demo_api_session),
+):
+    tasks = get_open_tasks(property_id)
+    allowed = _session_booking_ids(session)
+    if allowed is None:
+        return tasks
+    return [
+        item
+        for item in tasks
+        if item["booking_id"] in allowed
+    ]
 
 
 # ---------------------------------------------------------
@@ -317,7 +648,16 @@ def read_open_tasks(property_id: str):
 # ---------------------------------------------------------
 
 @app.post("/messages")
-def create_message(payload: MessageCreate):
+def create_message(
+    payload: MessageCreate,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_booking_and_guest(
+        session,
+        booking_id=payload.booking_id,
+        guest_id=payload.guest_id,
+    )
+
     return send_message(
         booking_id=payload.booking_id,
         guest_id=payload.guest_id,
@@ -328,7 +668,9 @@ def create_message(payload: MessageCreate):
 
 @app.get("/reservations/{booking_id}/messages")
 def read_booking_messages(
-    booking_id: str,):
+    booking_id: str,
+    _session=Depends(require_demo_booking_scope),
+):
     return get_booking_messages(booking_id)
 
 # ---------------------------------------------------------
@@ -336,7 +678,15 @@ def read_booking_messages(
 # ---------------------------------------------------------
 
 @app.post("/incidents")
-def create_new_incident(payload: IncidentCreate):
+def create_new_incident(
+    payload: IncidentCreate,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_optional_booking(
+        session,
+        payload.booking_id,
+    )
+
     return create_incident(
         property_id=payload.property_id,
         booking_id=payload.booking_id,
@@ -347,7 +697,10 @@ def create_new_incident(payload: IncidentCreate):
 
 
 @app.patch("/incidents/{incident_id}/resolve")
-def resolve_existing_incident(incident_id: str):
+def resolve_existing_incident(
+    incident_id: str,
+    _session=Depends(require_demo_incident_scope),
+):
     incident = resolve_incident(incident_id)
 
     if incident is None:
@@ -364,7 +717,15 @@ def resolve_existing_incident(incident_id: str):
 # ---------------------------------------------------------
 
 @app.post("/tasks")
-def create_new_task(payload: TaskCreate):
+def create_new_task(
+    payload: TaskCreate,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_optional_booking(
+        session,
+        payload.booking_id,
+    )
+
     return create_task(
         property_id=payload.property_id,
         booking_id=payload.booking_id,
@@ -379,6 +740,7 @@ def create_new_task(payload: TaskCreate):
 def assign_existing_task(
     task_id: str,
     payload: TaskAssignmentAction,
+    _session=Depends(require_demo_task_scope),
 ):
     try:
         return assign_task(
@@ -409,6 +771,7 @@ def assign_existing_task(
 def complete_existing_task(
     task_id: str,
     payload: CaseOperatorAction,
+    _session=Depends(require_demo_task_scope),
 ):
     try:
         task = complete_task(
@@ -436,7 +799,15 @@ def complete_existing_task(
 # ---------------------------------------------------------
 
 @app.post("/escalations")
-def create_new_escalation(payload: EscalationCreate):
+def create_new_escalation(
+    payload: EscalationCreate,
+    session=Depends(require_demo_api_session),
+):
+    _authorize_optional_booking(
+        session,
+        payload.booking_id,
+    )
+
     return create_escalation(
         booking_id=payload.booking_id,
         property_id=payload.property_id,
@@ -449,15 +820,32 @@ def create_new_escalation(payload: EscalationCreate):
 
 
 @app.get("/escalations")
-def read_open_escalations():
-    return get_open_escalations()
+def read_open_escalations(
+    session=Depends(require_demo_api_session),
+):
+    escalations = get_open_escalations()
+    allowed = _session_booking_ids(session)
+    if allowed is None:
+        return escalations
+    return [
+        item
+        for item in escalations
+        if item["booking_id"] in allowed
+    ]
 
 
 @app.get("/access/verify")
 def verify_access(
     guest_id: str,
     booking_id: str,
+    session=Depends(require_demo_api_session),
 ):
+    _authorize_booking_and_guest(
+        session,
+        booking_id=booking_id,
+        guest_id=guest_id,
+    )
+
     return verify_guest_access(
         guest_id=guest_id,
         booking_id=booking_id,
@@ -467,6 +855,7 @@ def verify_access(
 def resolve_existing_escalation(
     escalation_id: str,
     payload: CaseOperatorAction,
+    _session=Depends(require_demo_escalation_scope),
 ):
     try:
         escalation = resolve_escalation(
@@ -498,6 +887,7 @@ def resolve_existing_escalation(
 )
 def read_compensation_evidence(
     compensation_request_id: str,
+    _session=Depends(require_demo_compensation_scope),
 ):
     try:
         return get_compensation_evidence(
@@ -517,6 +907,7 @@ def read_compensation_evidence(
 def create_compensation_decision(
     compensation_request_id: str,
     payload: CompensationDecisionCreate,
+    _session=Depends(require_demo_compensation_scope),
 ):
     try:
         return record_compensation_decision(
@@ -544,7 +935,10 @@ def create_compensation_decision(
     "/agent/chat",
     response_model=AgentChatResponse,
 )
-async def agent_chat(payload: AgentChatRequest):
+async def agent_chat(
+    payload: AgentChatRequest,
+    session=Depends(require_demo_api_session),
+):
     """
     Send a guest message through the StayOps Guest Operations Agent.
 
@@ -556,6 +950,12 @@ async def agent_chat(payload: AgentChatRequest):
     - send guest messages
     - apply deterministic safety rules
     """
+
+    _authorize_booking_and_guest(
+        session,
+        booking_id=payload.booking_id,
+        guest_id=payload.guest_id,
+    )
 
     try:
         # -----------------------------------------------------
@@ -696,8 +1096,70 @@ async def agent_chat(payload: AgentChatRequest):
 # DEMO
 # ---------------------------------------------------------
 
+@app.post(
+    "/demo/sessions",
+    status_code=201,
+)
+def create_public_demo_session():
+    return create_demo_session()
+
+
+@app.get("/demo/sessions/current")
+def read_public_demo_session(
+    session=Depends(
+        require_demo_session
+    ),
+):
+    return {
+        "session_id": session["session_id"],
+        "created_at": session["created_at"],
+        "last_seen_at": session["last_seen_at"],
+        "expires_at": session["expires_at"],
+    }
+
+
+@app.get("/demo/sessions/stays")
+def read_public_demo_session_stays(
+    session=Depends(
+        require_demo_session
+    ),
+):
+    return get_demo_session_stays(
+        session["session_id"]
+    )
+
+
+@app.post(
+    "/demo/sessions/stays",
+    status_code=201,
+)
+def create_public_demo_session_stay(
+    payload: DemoGuestStayCreate,
+    session=Depends(
+        require_demo_session
+    ),
+):
+    try:
+        return create_demo_guest_stay(
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            email=payload.email,
+            guest_lang=payload.guest_lang,
+            property_id=payload.property_id,
+            session_id=session["session_id"],
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+
 @app.get("/demo/stays")
-def read_demo_stays():
+def read_demo_stays(
+    _legacy=Depends(require_legacy_demo_mode),
+):
     return get_demo_stays()
 
 
@@ -712,6 +1174,7 @@ def read_demo_properties():
 )
 def create_demo_stay(
     payload: DemoGuestStayCreate,
+    _legacy=Depends(require_legacy_demo_mode),
 ):
     try:
         return create_demo_guest_stay(
@@ -732,6 +1195,7 @@ def create_demo_stay(
 @app.post("/demo/reset/{booking_id}")
 def reset_demo(
     booking_id: str,
+    _session=Depends(require_demo_booking_scope),
 ):
     try:
         return reset_demo_state(

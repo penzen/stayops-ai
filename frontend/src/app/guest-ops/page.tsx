@@ -1,4 +1,5 @@
 "use client";
+import { demoFetch } from "../../lib/demo-session";
 
 import {
   useCallback,
@@ -206,8 +207,8 @@ export default function Home() {
     useCallback(async () => {
       try {
         const response =
-          await fetch(
-            `${API_URL}/demo/stays`
+          await demoFetch(
+            `${API_URL}/demo/sessions/stays`
           );
 
         if (!response.ok) {
@@ -254,7 +255,7 @@ export default function Home() {
               defaultStay.booking_id
           );
 
-          if (requestedStay) {
+          if (requestedBookingId) {
             window.localStorage.removeItem(
               "stayops:selectedBookingId"
             );
@@ -280,7 +281,7 @@ const loadConversation =
     ) => {
       try {
         const response =
-          await fetch(
+          await demoFetch(
             `${API_URL}/reservations/${bookingId}/messages`,
             {
               cache: "no-store",
@@ -486,7 +487,7 @@ useEffect(() => {
 
     try {
       const response =
-        await fetch(
+        await demoFetch(
           `${API_URL}/demo/reset/${selectedStay.booking_id}`,
           {
             method: "POST",
@@ -556,7 +557,7 @@ useEffect(() => {
 
     try {
       const response =
-        await fetch(
+        await demoFetch(
           `${API_URL}/agent/chat`,
           {
             method: "POST",

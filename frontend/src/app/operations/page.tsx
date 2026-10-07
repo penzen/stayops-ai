@@ -1,4 +1,5 @@
 "use client";
+import { demoFetch } from "../../lib/demo-session";
 import Timeline from "./components/Timeline";
 import TaskPanel from "./components/TaskPanel";
 import EscalationPanel from "./components/EscalationPanel";
@@ -123,7 +124,7 @@ const [
       setError(null);
 
       try {
-        const response = await fetch(
+        const response = await demoFetch(
           `${API_URL}/operations/queue`,
           {
             cache: "no-store",
@@ -181,7 +182,7 @@ const [
 const loadTechnicians = useCallback(
   async () => {
     try {
-      const response = await fetch(
+      const response = await demoFetch(
         `${API_URL}/operations/technicians`,
         {
           cache: "no-store",
@@ -245,7 +246,7 @@ const loadConversation = useCallback(
     setIsConversationLoading(true);
 
     try {
-      const response = await fetch(
+      const response = await demoFetch(
         `${API_URL}/reservations/${bookingId}/messages`,
         {
           cache: "no-store",
@@ -291,7 +292,7 @@ const loadCompensationEvidence = useCallback(
     );
 
     try {
-      const response = await fetch(
+      const response = await demoFetch(
         `${API_URL}/compensation-requests/${compensationRequestId}/evidence`,
         {
           cache: "no-store",
@@ -335,7 +336,7 @@ const loadTimeline = useCallback(
     setIsTimelineLoading(true);
 
     try {
-      const response = await fetch(
+      const response = await demoFetch(
         `${API_URL}/cases/${caseId}/timeline`
       );
 
@@ -375,7 +376,7 @@ async function returnCaseToAgent() {
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/cases/${selectedEntry.case.case_id}/return-to-agent`,
       {
         method: "PATCH",
@@ -432,7 +433,7 @@ async function resolveEscalation(
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/escalations/${escalationId}/resolve`,
       {
         method: "PATCH",
@@ -521,7 +522,7 @@ async function submitCompensationDecision(
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/compensation-requests/${selectedEntry.compensation_request.compensation_request_id}/decision`,
       {
         method: "POST",
@@ -604,7 +605,7 @@ async function completeTask(
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/tasks/${taskId}/complete`,
       {
         method: "PATCH",
@@ -664,7 +665,7 @@ async function assignTaskToWorker(
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/tasks/${taskId}/assign`,
       {
         method: "PATCH",
@@ -725,7 +726,7 @@ async function claimSelectedCase() {
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/cases/${selectedEntry.case.case_id}/claim`,
       {
         method: "PATCH",

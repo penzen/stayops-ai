@@ -1,4 +1,5 @@
 "use client";
+import { demoFetch } from "../../lib/demo-session";
 
 import Link from "next/link";
 import {
@@ -57,7 +58,7 @@ export default function CreateDemoPage() {
 
     async function loadProperties() {
       try {
-        const response = await fetch(
+        const response = await demoFetch(
           `${API_URL}/demo/properties`,
           {
             signal: controller.signal,
@@ -119,8 +120,8 @@ export default function CreateDemoPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(
-        `${API_URL}/demo/stays`,
+      const response = await demoFetch(
+        `${API_URL}/demo/sessions/stays`,
         {
           method: "POST",
           headers: {

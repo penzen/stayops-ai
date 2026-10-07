@@ -3,6 +3,12 @@ import uuid
 
 from backend.database.demo_dates import get_active_demo_window
 from backend.services.db import get_connection
+from backend.services.demo_sessions import (
+    MAX_CUSTOM_STAYS_PER_SESSION,
+    DemoSessionLimitExceeded,
+    count_custom_demo_stays,
+    register_demo_booking,
+)
 
 
 LANGUAGE_DEFAULTS = {
@@ -94,6 +100,7 @@ def create_demo_guest_stay(
     property_id: str,
     guest_lang: str = "en",
     email: str | None = None,
+    session_id: str | None = None,
 ):
     first_name = _clean_name(
         first_name,
@@ -131,6 +138,22 @@ def create_demo_guest_stay(
     connection = get_connection()
 
     try:
+        if session_id is not None:
+            custom_count = (
+                count_custom_demo_stays(
+                    session_id,
+                    connection=connection,
+                )
+            )
+
+            if (
+                custom_count
+                >= MAX_CUSTOM_STAYS_PER_SESSION
+            ):
+                raise DemoSessionLimitExceeded(
+                    "Demo session custom-stay limit reached."
+                )
+
         property_row = connection.execute(
             """
             SELECT
@@ -232,6 +255,14 @@ def create_demo_guest_stay(
                 "GRO_254",
             ),
         )
+
+        if session_id is not None:
+            register_demo_booking(
+                session_id=session_id,
+                booking_id=booking_id,
+                resource_kind="custom",
+                connection=connection,
+            )
 
         connection.commit()
 
