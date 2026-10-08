@@ -488,7 +488,11 @@ def read_human_operations_queue(
 
 
 @app.get("/operations/technicians")
-def read_maintenance_technicians():
+def read_maintenance_technicians(
+    _session=Depends(
+        require_demo_api_session
+    ),
+):
     return get_maintenance_workers()
 
 
@@ -590,7 +594,12 @@ def read_booking_cases(
 # ---------------------------------------------------------
 
 @app.get("/properties/{property_id}")
-def read_property(property_id: str):
+def read_property(
+    property_id: str,
+    _session=Depends(
+        require_demo_api_session
+    ),
+):
     property_data = get_property(property_id)
 
     if property_data is None:
@@ -603,7 +612,12 @@ def read_property(property_id: str):
 
 
 @app.get("/properties/{property_id}/access")
-def read_access_system(property_id: str):
+def read_access_system(
+    property_id: str,
+    _session=Depends(
+        require_demo_api_session
+    ),
+):
     access = get_access_system(property_id)
 
     if access is None:
@@ -1229,7 +1243,11 @@ def read_demo_stays(
 
 
 @app.get("/demo/properties")
-def read_demo_properties():
+def read_demo_properties(
+    _session=Depends(
+        require_demo_session
+    ),
+):
     return get_demo_properties()
 
 

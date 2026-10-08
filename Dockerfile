@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 # Install a few basic runtime utilities.
 RUN apt-get update \
