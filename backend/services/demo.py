@@ -46,7 +46,10 @@ def get_demo_stays():
             JOIN properties AS p
                 ON p.property_id = b.property_id
 
-            WHERE b.booking_id IN ({placeholders})
+            WHERE (
+                b.booking_id IN ({placeholders})
+                OR b.booking_id LIKE 'book_demo_custom_%'
+            )
 
             ORDER BY
                 g.first_name,
@@ -85,7 +88,21 @@ def reset_demo_state(
     - cases
     """
 
-    if booking_id not in DEMO_BOOKING_IDS:
+    is_seeded_demo = (
+        booking_id in DEMO_BOOKING_IDS
+    )
+    is_custom_demo = booking_id.startswith(
+        "book_demo_custom_"
+    )
+    is_session_demo = booking_id.startswith(
+        "book_demo_session_"
+    )
+
+    if (
+        not is_seeded_demo
+        and not is_custom_demo
+        and not is_session_demo
+    ):
         raise ValueError(
             "Booking is not a valid demo booking."
         )
@@ -93,6 +110,20 @@ def reset_demo_state(
     connection = get_connection()
 
     try:
+        booking_row = connection.execute(
+            """
+            SELECT booking_id
+            FROM bookings
+            WHERE booking_id = ?
+            """,
+            (booking_id,),
+        ).fetchone()
+
+        if booking_row is None:
+            raise ValueError(
+                "Demo booking does not exist."
+            )
+
         escalation_cursor = connection.execute(
             """
             DELETE FROM escalations

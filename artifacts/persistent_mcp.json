@@ -1,0 +1,207 @@
+{
+  "mode": "persistent_mcp",
+  "mcp_startup_seconds": 3.022823099978268,
+  "runs_per_scenario": 3,
+  "summaries": [
+    {
+      "scenario": "plumbing_worsening_leak",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 13.266244399982194,
+      "avg_llm_requests": 5.0,
+      "avg_tool_calls": 9.333333333333334,
+      "avg_input_tokens": 39150.0,
+      "avg_output_tokens": 444.6666666666667,
+      "cache_hit_rate": 0.7656023839931886,
+      "avg_cache_write_tokens": 9161.666666666666
+    },
+    {
+      "scenario": "heating_failure",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 11.094801633347137,
+      "avg_llm_requests": 4.666666666666667,
+      "avg_tool_calls": 8.0,
+      "avg_input_tokens": 31825.0,
+      "avg_output_tokens": 431.3333333333333,
+      "cache_hit_rate": 0.7620319455354805,
+      "avg_cache_write_tokens": 7559.333333333333
+    },
+    {
+      "scenario": "refund_request",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 13.959376499988139,
+      "avg_llm_requests": 5.333333333333333,
+      "avg_tool_calls": 8.333333333333334,
+      "avg_input_tokens": 37020.666666666664,
+      "avg_output_tokens": 519.3333333333334,
+      "cache_hit_rate": 0.7823377933046407,
+      "avg_cache_write_tokens": 8042.0
+    }
+  ],
+  "runs": [
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 14.599546600016765,
+        "llm_requests": 5,
+        "tool_calls": 8,
+        "input_tokens": 34374,
+        "cached_input_tokens": 26797,
+        "cache_write_input_tokens": 7562,
+        "output_tokens": 407,
+        "reasoning_tokens": 0,
+        "total_tokens": 34781,
+        "cache_hit_rate": 0.7795717693605633
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 11.864419299992733,
+        "llm_requests": 5,
+        "tool_calls": 11,
+        "input_tokens": 47950,
+        "cached_input_tokens": 35842,
+        "cache_write_input_tokens": 12093,
+        "output_tokens": 488,
+        "reasoning_tokens": 0,
+        "total_tokens": 48438,
+        "cache_hit_rate": 0.7474869655891554
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 13.334767299937084,
+        "llm_requests": 5,
+        "tool_calls": 9,
+        "input_tokens": 35126,
+        "cached_input_tokens": 27281,
+        "cache_write_input_tokens": 7830,
+        "output_tokens": 439,
+        "reasoning_tokens": 0,
+        "total_tokens": 35565,
+        "cache_hit_rate": 0.7766611626715254
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 9.248400600044988,
+        "llm_requests": 4,
+        "tool_calls": 7,
+        "input_tokens": 26600,
+        "cached_input_tokens": 19162,
+        "cache_write_input_tokens": 7426,
+        "output_tokens": 395,
+        "reasoning_tokens": 0,
+        "total_tokens": 26995,
+        "cache_hit_rate": 0.7203759398496241
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 11.886398800066672,
+        "llm_requests": 5,
+        "tool_calls": 10,
+        "input_tokens": 35017,
+        "cached_input_tokens": 27193,
+        "cache_write_input_tokens": 7809,
+        "output_tokens": 474,
+        "reasoning_tokens": 0,
+        "total_tokens": 35491,
+        "cache_hit_rate": 0.7765656681040637
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 12.149605499929748,
+        "llm_requests": 5,
+        "tool_calls": 7,
+        "input_tokens": 33858,
+        "cached_input_tokens": 26400,
+        "cache_write_input_tokens": 7443,
+        "output_tokens": 425,
+        "reasoning_tokens": 0,
+        "total_tokens": 34283,
+        "cache_hit_rate": 0.7797270955165692
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 14.900787199963816,
+        "llm_requests": 5,
+        "tool_calls": 9,
+        "input_tokens": 34655,
+        "cached_input_tokens": 26573,
+        "cache_write_input_tokens": 8067,
+        "output_tokens": 516,
+        "reasoning_tokens": 0,
+        "total_tokens": 35171,
+        "cache_hit_rate": 0.7667868994373106
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 12.447619899990968,
+        "llm_requests": 5,
+        "tool_calls": 8,
+        "input_tokens": 34486,
+        "cached_input_tokens": 26433,
+        "cache_write_input_tokens": 8038,
+        "output_tokens": 527,
+        "reasoning_tokens": 0,
+        "total_tokens": 35013,
+        "cache_hit_rate": 0.766484950414661
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 14.529722400009632,
+        "llm_requests": 6,
+        "tool_calls": 8,
+        "input_tokens": 41921,
+        "cached_input_tokens": 33882,
+        "cache_write_input_tokens": 8021,
+        "output_tokens": 515,
+        "reasoning_tokens": 0,
+        "total_tokens": 42436,
+        "cache_hit_rate": 0.8082345363898762
+      }
+    }
+  ]
+}

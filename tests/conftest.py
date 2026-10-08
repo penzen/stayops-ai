@@ -24,6 +24,11 @@ def test_db(tmp_path, monkeypatch):
         str(db_path),
     )
 
+    monkeypatch.setenv(
+        "STAYOPS_ALLOW_LEGACY_DEMO",
+        "1",
+    )
+
     return db_path
 
 

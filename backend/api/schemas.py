@@ -62,6 +62,29 @@ class CompensationDecisionCreate(BaseModel):
     amount: float | None = None
     currency: str | None = None
 
+
+class DemoGuestStayCreate(BaseModel):
+    first_name: str = Field(
+        min_length=1,
+        max_length=80,
+    )
+    last_name: str = Field(
+        min_length=1,
+        max_length=80,
+    )
+    email: str | None = Field(
+        default=None,
+        max_length=255,
+    )
+    guest_lang: str = Field(
+        default="en",
+        pattern="^(en|de|fr)$",
+    )
+    property_id: str = Field(
+        min_length=1,
+        max_length=64,
+    )
+
 """
 These define what JSON FastAPI expects for write operations.
 

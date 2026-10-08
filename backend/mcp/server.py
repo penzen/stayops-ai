@@ -135,15 +135,25 @@ def lookup_access_system(property_id: str) -> dict:
 
 
 @mcp.tool()
-def lookup_open_incidents(property_id: str) -> dict:
+def lookup_open_incidents(
+    property_id: str,
+    booking_id: str,
+) -> dict:
     """
-    Retrieve open operational incidents for a property.
+    Retrieve open operational incidents for the current
+    booking and property.
+
+    Always use the current preloaded booking_id.
     """
 
-    incidents = get_open_incidents(property_id)
+    incidents = get_open_incidents(
+        property_id,
+        booking_id=booking_id,
+    )
 
     return {
         "property_id": property_id,
+        "booking_id": booking_id,
         "incidents": incidents,
     }
 

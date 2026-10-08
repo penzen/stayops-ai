@@ -1,7 +1,8 @@
 "use client";
+import { useRouter } from "next/navigation";
+import { demoFetch } from "../../lib/demo-session";
 import Timeline from "./components/Timeline";
 import TaskPanel from "./components/TaskPanel";
-import Link from "next/link";
 import EscalationPanel from "./components/EscalationPanel";
 import QueueList from "./components/QueueList";
 import ConversationPanel from "./components/ConversationPanel";
@@ -26,6 +27,8 @@ import type {
 } from "./types";
 
 export default function OperationsPage() {
+  const router = useRouter();
+
   const [
     queue,
     setQueue,
@@ -124,7 +127,7 @@ const [
       setError(null);
 
       try {
-        const response = await fetch(
+        const response = await demoFetch(
           `${API_URL}/operations/queue`,
           {
             cache: "no-store",
@@ -142,8 +145,24 @@ const [
 
         setQueue(data);
 
+        const requestedCaseId =
+          new URLSearchParams(
+            window.location.search
+          ).get("case_id");
+
         setSelectedCaseId(
           (current) => {
+            if (
+              requestedCaseId &&
+              data.some(
+                (entry) =>
+                  entry.case.case_id ===
+                  requestedCaseId
+              )
+            ) {
+              return requestedCaseId;
+            }
+
             if (
               current &&
               data.some(
@@ -182,7 +201,7 @@ const [
 const loadTechnicians = useCallback(
   async () => {
     try {
-      const response = await fetch(
+      const response = await demoFetch(
         `${API_URL}/operations/technicians`,
         {
           cache: "no-store",
@@ -246,7 +265,7 @@ const loadConversation = useCallback(
     setIsConversationLoading(true);
 
     try {
-      const response = await fetch(
+      const response = await demoFetch(
         `${API_URL}/reservations/${bookingId}/messages`,
         {
           cache: "no-store",
@@ -292,7 +311,7 @@ const loadCompensationEvidence = useCallback(
     );
 
     try {
-      const response = await fetch(
+      const response = await demoFetch(
         `${API_URL}/compensation-requests/${compensationRequestId}/evidence`,
         {
           cache: "no-store",
@@ -336,7 +355,7 @@ const loadTimeline = useCallback(
     setIsTimelineLoading(true);
 
     try {
-      const response = await fetch(
+      const response = await demoFetch(
         `${API_URL}/cases/${caseId}/timeline`
       );
 
@@ -376,7 +395,7 @@ async function returnCaseToAgent() {
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/cases/${selectedEntry.case.case_id}/return-to-agent`,
       {
         method: "PATCH",
@@ -433,7 +452,7 @@ async function resolveEscalation(
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/escalations/${escalationId}/resolve`,
       {
         method: "PATCH",
@@ -522,7 +541,7 @@ async function submitCompensationDecision(
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/compensation-requests/${selectedEntry.compensation_request.compensation_request_id}/decision`,
       {
         method: "POST",
@@ -605,7 +624,7 @@ async function completeTask(
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/tasks/${taskId}/complete`,
       {
         method: "PATCH",
@@ -665,7 +684,7 @@ async function assignTaskToWorker(
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/tasks/${taskId}/assign`,
       {
         method: "PATCH",
@@ -726,7 +745,7 @@ async function claimSelectedCase() {
   setActionError(null);
 
   try {
-    const response = await fetch(
+    const response = await demoFetch(
       `${API_URL}/cases/${selectedEntry.case.case_id}/claim`,
       {
         method: "PATCH",
@@ -799,6 +818,48 @@ useEffect(() => {
 }, [loadQueue]);
 
 
+useEffect(() => {
+  if (isLoading) {
+    return;
+  }
+
+  const currentCaseId =
+    new URLSearchParams(
+      window.location.search
+    ).get("case_id");
+
+  if (selectedCaseId) {
+    if (
+      currentCaseId !== selectedCaseId
+    ) {
+      router.replace(
+        `/operations?case_id=${encodeURIComponent(
+          selectedCaseId
+        )}`,
+        {
+          scroll: false,
+        }
+      );
+    }
+
+    return;
+  }
+
+  if (currentCaseId) {
+    router.replace(
+      "/operations",
+      {
+        scroll: false,
+      }
+    );
+  }
+}, [
+  selectedCaseId,
+  isLoading,
+  router,
+]);
+
+
 const selectedEntry =
   queue.find(
     (entry) =>
@@ -806,6 +867,19 @@ const selectedEntry =
       selectedCaseId
   ) ?? null;
 
+
+function openSelectedGuestOps() {
+  if (!selectedEntry) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    "stayops:selectedBookingId",
+    selectedEntry.case.booking_id
+  );
+
+  router.push("/guest-ops");
+}
 
 
 const selectedCompensationRequestId =
@@ -882,67 +956,44 @@ useEffect(() => {
     queue.length - unclaimedCount;
 
 
+  const financialReviewCount =
+    queue.filter(
+      (entry) =>
+        entry.compensation_request
+          ?.status === "pending_review"
+    ).length;
+
+
   return (
     <main className="min-h-screen bg-[#09090b] text-zinc-100">
 
-      {/* HEADER */}
-
-      <header className="border-b border-zinc-800 bg-[#09090b]">
-
-        <div className="mx-auto flex max-w-[1500px] items-center justify-between px-6 py-4">
-
-          <div className="flex items-center gap-3">
-
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-sm font-bold text-zinc-950">
-              SO
-            </div>
-
-            <div>
-              <h1 className="font-semibold tracking-tight">
-                StayOps Operations
-              </h1>
-
-              <p className="text-xs text-zinc-500">
-                Human intervention workspace
-              </p>
-            </div>
-
-          </div>
-
-
-          <div className="flex items-center gap-3">
-
-            <Link
-              href="/"
-              className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-xs font-semibold text-blue-300 transition hover:border-blue-400/50 hover:bg-blue-500/20 hover:text-blue-200"
-            >
-              Guest Demo
-            </Link>
-
-            <button
-              onClick={() =>
-                void loadQueue()
-              }
-              disabled={isLoading}
-              className="rounded-lg bg-white px-4 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50"
-            >
-              {isLoading
-                ? "Refreshing..."
-                : "Refresh"}
-            </button>
-
-          </div>
-
-        </div>
-
-      </header>
-
-
       <div className="mx-auto max-w-[1500px] px-6 py-6">
+
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-300">
+              Operations
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+              Human intervention workspace
+            </h1>
+            <p className="mt-2 text-sm text-zinc-500">
+              Claim Cases, coordinate technicians and make bounded human decisions.
+            </p>
+          </div>
+
+          <button
+            onClick={() => void loadQueue()}
+            disabled={isLoading}
+            className="rounded-lg bg-white px-4 py-2.5 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-50"
+          >
+            {isLoading ? "Refreshing..." : "Refresh queue"}
+          </button>
+        </div>
 
         {/* SUMMARY */}
 
-        <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
 
@@ -978,6 +1029,19 @@ useEffect(() => {
 
             <p className="mt-2 text-3xl font-semibold text-emerald-300">
               {claimedCount}
+            </p>
+
+          </div>
+
+
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
+
+            <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+              Financial reviews
+            </p>
+
+            <p className="mt-2 text-3xl font-semibold text-violet-300">
+              {financialReviewCount}
             </p>
 
           </div>
@@ -1036,6 +1100,7 @@ useEffect(() => {
                 entry={selectedEntry}
                 isActionLoading={isActionLoading}
                 onClaimCase={claimSelectedCase}
+                onOpenGuestOps={openSelectedGuestOps}
               />
 
              

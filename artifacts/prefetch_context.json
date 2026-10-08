@@ -1,0 +1,307 @@
+{
+  "mode": "persistent_mcp",
+  "mcp_startup_seconds": 3.0299606999615207,
+  "runs_per_scenario": 3,
+  "summaries": [
+    {
+      "scenario": "plumbing_worsening_leak",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 10.947872600013701,
+      "avg_llm_requests": 3.6666666666666665,
+      "avg_tool_calls": 5.666666666666667,
+      "avg_input_tokens": 25950.0,
+      "avg_output_tokens": 373.3333333333333,
+      "cache_hit_rate": 0.7012459858702633,
+      "avg_cache_write_tokens": 7741.666666666667,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 3,
+        "ensure_operational_case": 3,
+        "ensure_operations_task": 3,
+        "lookup_operational_playbook": 3,
+        "update_case_workflow_status": 3,
+        "qdrant-find": 2
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 11.329650266678073,
+      "avg_llm_requests": 4.333333333333333,
+      "avg_tool_calls": 5.0,
+      "avg_input_tokens": 30298.333333333332,
+      "avg_output_tokens": 350.3333333333333,
+      "cache_hit_rate": 0.7486000330051158,
+      "avg_cache_write_tokens": 7604.0,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 3,
+        "ensure_operational_case": 3,
+        "ensure_operations_task": 3,
+        "lookup_operational_playbook": 3,
+        "update_case_workflow_status": 3
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "runs": 3,
+      "pass_rate": 1.0,
+      "avg_latency_seconds": 11.795590700038398,
+      "avg_llm_requests": 4.333333333333333,
+      "avg_tool_calls": 6.0,
+      "avg_input_tokens": 31430.666666666668,
+      "avg_output_tokens": 462.6666666666667,
+      "cache_hit_rate": 0.739034064395707,
+      "avg_cache_write_tokens": 8189.333333333333,
+      "tool_call_breakdown": {
+        "ensure_human_escalation": 3,
+        "ensure_operational_case": 3,
+        "ensure_operations_task": 3,
+        "ensure_refund_workflow": 3,
+        "lookup_operational_playbook": 3,
+        "update_case_workflow_status": 3
+      }
+    }
+  ],
+  "overall_tool_call_breakdown": {
+    "ensure_human_escalation": 9,
+    "ensure_operational_case": 9,
+    "ensure_operations_task": 9,
+    "lookup_operational_playbook": 9,
+    "update_case_workflow_status": 9,
+    "ensure_refund_workflow": 3,
+    "qdrant-find": 2
+  },
+  "runs": [
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 13.054832000052556,
+        "llm_requests": 4,
+        "tool_calls": 6,
+        "input_tokens": 28802,
+        "cached_input_tokens": 21010,
+        "cache_write_input_tokens": 7780,
+        "output_tokens": 387,
+        "reasoning_tokens": 0,
+        "total_tokens": 29189,
+        "cache_hit_rate": 0.7294632317200195
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "qdrant-find": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 10.365633099921979,
+        "llm_requests": 4,
+        "tool_calls": 5,
+        "input_tokens": 27832,
+        "cached_input_tokens": 20148,
+        "cache_write_input_tokens": 7672,
+        "output_tokens": 353,
+        "reasoning_tokens": 0,
+        "total_tokens": 28185,
+        "cache_hit_rate": 0.723914918079908
+      },
+      "tool_call_breakdown": {
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "plumbing_worsening_leak",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 9.423152700066566,
+        "llm_requests": 3,
+        "tool_calls": 6,
+        "input_tokens": 21216,
+        "cached_input_tokens": 13434,
+        "cache_write_input_tokens": 7773,
+        "output_tokens": 380,
+        "reasoning_tokens": 0,
+        "total_tokens": 21596,
+        "cache_hit_rate": 0.6332013574660633
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "qdrant-find": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 9.460870699957013,
+        "llm_requests": 4,
+        "tool_calls": 5,
+        "input_tokens": 28310,
+        "cached_input_tokens": 20682,
+        "cache_write_input_tokens": 7616,
+        "output_tokens": 355,
+        "reasoning_tokens": 0,
+        "total_tokens": 28665,
+        "cache_hit_rate": 0.7305545743553514
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 13.085955300019123,
+        "llm_requests": 5,
+        "tool_calls": 5,
+        "input_tokens": 35021,
+        "cached_input_tokens": 27389,
+        "cache_write_input_tokens": 7617,
+        "output_tokens": 362,
+        "reasoning_tokens": 0,
+        "total_tokens": 35383,
+        "cache_hit_rate": 0.782073612975072
+      },
+      "tool_call_breakdown": {
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "heating_failure",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 11.442124800058082,
+        "llm_requests": 4,
+        "tool_calls": 5,
+        "input_tokens": 27564,
+        "cached_input_tokens": 19973,
+        "cache_write_input_tokens": 7579,
+        "output_tokens": 334,
+        "reasoning_tokens": 0,
+        "total_tokens": 27898,
+        "cache_hit_rate": 0.7246045566681178
+      },
+      "tool_call_breakdown": {
+        "lookup_operational_playbook": 1,
+        "ensure_operational_case": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 1,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 11.099364600027911,
+        "llm_requests": 4,
+        "tool_calls": 6,
+        "input_tokens": 28904,
+        "cached_input_tokens": 20690,
+        "cache_write_input_tokens": 8202,
+        "output_tokens": 472,
+        "reasoning_tokens": 0,
+        "total_tokens": 29376,
+        "cache_hit_rate": 0.7158178798782175
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1,
+        "ensure_refund_workflow": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 2,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 10.648127400083467,
+        "llm_requests": 4,
+        "tool_calls": 6,
+        "input_tokens": 28899,
+        "cached_input_tokens": 20696,
+        "cache_write_input_tokens": 8191,
+        "output_tokens": 468,
+        "reasoning_tokens": 0,
+        "total_tokens": 29367,
+        "cache_hit_rate": 0.7161493477282951
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1,
+        "ensure_refund_workflow": 1
+      }
+    },
+    {
+      "scenario": "refund_request",
+      "run": 3,
+      "passed": true,
+      "failures": [],
+      "metrics": {
+        "latency_seconds": 13.639280100003816,
+        "llm_requests": 5,
+        "tool_calls": 6,
+        "input_tokens": 36489,
+        "cached_input_tokens": 28299,
+        "cache_write_input_tokens": 8175,
+        "output_tokens": 448,
+        "reasoning_tokens": 0,
+        "total_tokens": 36937,
+        "cache_hit_rate": 0.7755487955274192
+      },
+      "tool_call_breakdown": {
+        "ensure_operational_case": 1,
+        "lookup_operational_playbook": 1,
+        "ensure_operations_task": 1,
+        "ensure_human_escalation": 1,
+        "update_case_workflow_status": 1,
+        "ensure_refund_workflow": 1
+      }
+    }
+  ]
+}

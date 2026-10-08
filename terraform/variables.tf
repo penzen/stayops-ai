@@ -23,9 +23,9 @@ variable "ecr_repository_url" {
 }
 
 variable "image_tag" {
-  description = "Immutable Docker image version"
+  description = "Immutable Docker image used when bootstrapping the backend instance"
   type        = string
-  default     = "v2"
+  default     = "v5-1b1c65c"
 }
 
 variable "instance_type" {
