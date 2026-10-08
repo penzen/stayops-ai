@@ -19,7 +19,7 @@ output "cloudwatch_log_group" {
 }
 
 output "ecr_image" {
-  description = "Backend Docker image deployed to EC2"
+  description = "Backend Docker image configured for EC2 bootstrap"
   value       = "${var.ecr_repository_url}:${var.image_tag}"
 }
 

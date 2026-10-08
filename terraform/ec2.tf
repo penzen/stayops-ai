@@ -31,6 +31,16 @@ resource "aws_instance" "backend" {
 
   user_data_replace_on_change = true
 
+  # Application releases are updated in-place through SSM. Ignoring
+  # subsequent user_data drift prevents a Docker image tag change from
+  # replacing the EC2 instance that holds the demo SQLite volume.
+  lifecycle {
+    ignore_changes = [
+      ami,
+      user_data,
+    ]
+  }
+
 
   root_block_device {
     volume_type = "gp3"

@@ -22,7 +22,7 @@ It cannot bypass deterministic business rules, directly manipulate the database,
 
 **Live demo:** https://d8hbj9y50bgwb.cloudfront.net
 
-The demo includes synthetic guest stays and supports workflows such as:
+The V5 demo includes isolated public demo sessions, synthetic guest stays, an operational overview, guest directory/detail views, global search, and workflows such as:
 
 - heating failures
 - plumbing incidents
@@ -35,6 +35,7 @@ The demo includes synthetic guest stays and supports workflows such as:
 - human financial decisions
 - multi-turn follow-ups
 - deterministic Case resolution
+- cross-page Case, guest, and booking navigation
 
 ---
 
@@ -71,7 +72,7 @@ StayOps treats those as **system-design problems**, not just prompting problems.
 <p align="center">
   <img
     src="assets/stayops-architecture.png"
-    alt="StayOps V3 core architecture"
+    alt="StayOps V5 core architecture"
     width="760"
   >
 </p>
@@ -1240,6 +1241,8 @@ Infrastructure includes:
 
 The runtime uses an IAM role rather than embedded developer credentials.
 
+For V5 application releases, the existing EC2 instance is updated in place through AWS Systems Manager rather than being replaced only to change the Docker image. The SQLite database remains mounted from `/opt/stayops/database/stayops.db`, while Terraform continues to own the surrounding infrastructure and the image used for instance bootstrap.
+
 ---
 
 # Tech stack
@@ -1495,25 +1498,32 @@ Before a release, all four should be clean.
 
 # Continuous integration
 
-GitHub Actions runs deterministic backend verification on pushes and pull requests.
+GitHub Actions validates both backend and frontend behavior on pushes and pull requests to `main` and `v5`.
 
 ```text
 Push / Pull Request
        ↓
 GitHub Actions
-       ↓
-Install uv
-       ↓
-Install Python 3.12
-       ↓
-uv sync --frozen --dev
-       ↓
-uv run pytest
+       ├── Backend
+       │     ↓
+       │   Python 3.12
+       │     ↓
+       │   uv sync --frozen --dev
+       │     ↓
+       │   uv run pytest
+       │
+       └── Frontend
+             ↓
+           Node.js 22
+             ↓
+           npm ci
+             ↓
+           npm run lint
+             ↓
+           npm run build
 ```
 
-The model-based agent evaluation suite is intentionally separate from the mandatory CI path because it requires model credentials and external model calls.
-
-A useful future improvement is to add frontend lint/build validation to CI as a second job.
+The model-based agent evaluation suite remains separate from the mandatory CI path because it requires model credentials and external model calls.
 
 ---
 
